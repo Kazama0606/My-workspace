@@ -613,6 +613,7 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
       <div class="nav-item" id="nav-calendar"><span class="nav-icon">📅</span>行事曆</div>
       <div class="nav-item" id="nav-finance"><span class="nav-icon">💰</span>資產負債</div>
       <div class="nav-item" id="nav-creation"><span class="nav-icon">🎨</span>創作靈感</div>
+      <div class="nav-item" id="nav-clients"><span class="nav-icon">📇</span>客戶紀錄</div>
     </div>
   </div>
   <div class="main">
@@ -622,6 +623,7 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
     <div class="page page-calendar" id="page-calendar"></div>
     <div class="page page-finance" id="page-finance"></div>
     <div class="page page-creation" id="page-creation"></div>
+    <div class="page page-clients" id="page-clients"></div>
   </div>
 </div>
 
@@ -712,7 +714,7 @@ const DataStore = (function () {
       recurring: [], recurringSeeded: false, dateNotes: [], holidaysSeeded: false,
       holidaysSeededV2: false, eventsDedupedV1: false, eventsWipedV1: false,
       recurringRenamedV1: false, shoppingItems: [], userName: '林玧澈', demoEventsSeeded: false,
-      habits: [], habitLogs: [],
+      habits: [], habitLogs: [], clientLogs: [],
     };
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -994,6 +996,23 @@ const DataStore = (function () {
     },
     toggleTask: (id) => { const t = db.tasks.find(t => t.id === id); if (t) { t.done = !t.done; save(); } },
     deleteTask: (id) => { db.tasks = db.tasks.filter(t => t.id !== id); save(); },
+
+    // ── 客戶互動紀錄(對話紀錄 + 下一步建議，附件用壓縮過的圖片base64或純文字存) ──
+    getClientLogs: () => db.clientLogs.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt),
+    getClientLog: (id) => db.clientLogs.find(c => c.id === id),
+    addClientLog: (data) => {
+      const c = {
+        id: uid(), clientName: data.clientName || '', date: data.date || todayStr(),
+        conversation: data.conversation || '', suggestion: data.suggestion || '',
+        files: data.files || [], createdAt: Date.now(),
+      };
+      db.clientLogs.push(c); save(); return c;
+    },
+    updateClientLog: (id, patch) => {
+      const c = db.clientLogs.find(c => c.id === id);
+      if (c) { Object.assign(c, patch); save(); }
+    },
+    deleteClientLog: (id) => { db.clientLogs = db.clientLogs.filter(c => c.id !== id); save(); },
 
     // ── 隨手買清單(待辦頁下方的小區塊，快速記錄想買的東西，含代購資訊) ──
     getShoppingItems: () => db.shoppingItems,
@@ -4083,6 +4102,192 @@ Pages.creation = (function () {
 
 </script>
 <script>
+/* 客戶紀錄頁 — 記錄跟客戶的對話過程，另外留一欄手動貼上 Claude AI 給的下一步建議(純前端網站沒有後端，
+   沒辦法安全地把 API 金鑰放進網頁直接呼叫，所以「AI 建議」是使用者自己去問 Claude 後貼過來，不是網頁自動生成) */
+window.Pages = window.Pages || {};
+Pages.clients = (function () {
+  let selectedId = null;
+  const MAX_IMG_DIM = 1000; // 圖片壓縮後最長邊(px)，避免手機截圖太大塞爆 localStorage
+
+  function render() {
+    const root = document.getElementById('page-clients');
+    if (selectedId && DataStore.getClientLog(selectedId)) {
+      renderDetail(root, selectedId);
+    } else {
+      renderList(root);
+    }
+  }
+
+  function compressImageFile(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > MAX_IMG_DIM || height > MAX_IMG_DIM) {
+            const scale = MAX_IMG_DIM / Math.max(width, height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve({ name: file.name, kind: 'image', data: canvas.toDataURL('image/jpeg', 0.72) });
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function readTextFile(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, kind: 'text', data: reader.result });
+      reader.readAsText(file);
+    });
+  }
+
+  function handleFiles(fileList) {
+    const files = Array.from(fileList);
+    return Promise.all(files.map(f => f.type.startsWith('image/') ? compressImageFile(f) : readTextFile(f)));
+  }
+
+  function renderList(root) {
+    const logs = DataStore.getClientLogs();
+    root.innerHTML = `
+      <div class="page-hd">
+        <div class="page-title">📇 客戶紀錄</div>
+        <div class="page-sub">記錄跟客戶的對話過程，「下一步建議」自己去問 Claude 之後貼回來就好，這個網站沒辦法自動生成建議</div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">新增紀錄</div>
+        <div class="form-row" style="margin-bottom:8px">
+          <input class="input" id="cl-name" placeholder="客戶名稱，例如：吳馬克">
+          <input class="input" type="date" id="cl-date" value="${DataStore.todayStr()}" style="max-width:160px">
+        </div>
+        <textarea class="input" id="cl-conversation" placeholder="對話紀錄，可以直接貼上聊天內容…" style="margin-bottom:8px;min-height:80px;resize:vertical"></textarea>
+        <textarea class="input" id="cl-suggestion" placeholder="下一步建議（去問 Claude 之後貼在這裡）…" style="margin-bottom:8px;min-height:60px;resize:vertical"></textarea>
+        <input class="input" type="file" id="cl-files" multiple accept="image/*,.txt,.md" style="margin-bottom:8px">
+        <div class="muted" style="font-size:12px;margin-bottom:8px">可以附加截圖或文字檔（例如逐字稿），圖片會自動壓縮</div>
+        <button class="btn" style="background:var(--blue-accent);color:#fff" id="cl-add">新增</button>
+      </div>
+      <div id="client-cards"></div>
+    `;
+
+    document.getElementById('cl-add').onclick = async () => {
+      const clientName = document.getElementById('cl-name').value.trim();
+      if (!clientName) return;
+      const btn = document.getElementById('cl-add');
+      btn.disabled = true; btn.textContent = '處理中…';
+      const date = document.getElementById('cl-date').value || DataStore.todayStr();
+      const conversation = document.getElementById('cl-conversation').value.trim();
+      const suggestion = document.getElementById('cl-suggestion').value.trim();
+      const fileInput = document.getElementById('cl-files');
+      const files = fileInput.files.length ? await handleFiles(fileInput.files) : [];
+      DataStore.addClientLog({ clientName, date, conversation, suggestion, files });
+      render();
+    };
+
+    const wrap = document.getElementById('client-cards');
+    if (logs.length === 0) {
+      wrap.innerHTML = '<div class="empty-hint">還沒有紀錄，上面新增一筆開始吧</div>';
+      return;
+    }
+    wrap.innerHTML = `<div class="grid grid-2">${logs.map(c => `
+      <div class="card" style="cursor:pointer" data-id="${c.id}">
+        <div class="card-title"><span>${Util.esc(c.clientName)}</span><span class="tag">${c.date}</span></div>
+        ${c.conversation ? `<div class="muted" style="font-size:12px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Util.esc(c.conversation)}</div>` : '<div class="muted" style="font-size:12px;margin-bottom:6px">還沒有寫對話紀錄</div>'}
+        <div style="font-size:12px" class="muted">${c.suggestion ? '✅ 已有下一步建議' : '⏳ 尚未填寫下一步建議'}${c.files && c.files.length ? ` · 📎 ${c.files.length} 個附件` : ''}</div>
+      </div>
+    `).join('')}</div>`;
+    wrap.querySelectorAll('[data-id]').forEach(el => {
+      el.onclick = () => { selectedId = el.dataset.id; render(); };
+    });
+  }
+
+  function fileTileHtml(f, idx, logId) {
+    if (f.kind === 'image') {
+      return `<div style="position:relative">
+        <img src="${f.data}" alt="${Util.esc(f.name)}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;cursor:pointer" data-view-img="${idx}">
+        <button class="idea-tile-del" style="position:absolute;top:-6px;right:-6px" data-del-file="${idx}">✕</button>
+      </div>`;
+    }
+    return `<div class="card" style="width:200px;padding:10px;position:relative">
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📄 ${Util.esc(f.name)}</div>
+      <div class="muted" style="font-size:11px;max-height:60px;overflow:hidden;white-space:pre-wrap">${Util.esc(f.data.slice(0, 200))}${f.data.length > 200 ? '…' : ''}</div>
+      <button class="idea-tile-del" style="position:absolute;top:-6px;right:-6px" data-del-file="${idx}">✕</button>
+    </div>`;
+  }
+
+  function renderDetail(root, id) {
+    const c = DataStore.getClientLog(id);
+    root.innerHTML = `
+      <div class="page-hd">
+        <button class="link-btn" id="back-btn">← 回客戶紀錄列表</button>
+        <div class="page-title" style="margin-top:8px">${Util.esc(c.clientName)}</div>
+        <div class="page-sub">${c.date}</div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">對話紀錄</div>
+        <textarea class="input" id="cl-d-conversation" style="margin-bottom:8px;min-height:120px;resize:vertical">${Util.esc(c.conversation)}</textarea>
+        <div class="card-title">下一步建議（Claude AI）</div>
+        <textarea class="input" id="cl-d-suggestion" style="margin-bottom:8px;min-height:80px;resize:vertical">${Util.esc(c.suggestion)}</textarea>
+        <button class="btn" style="background:var(--blue-accent);color:#fff" id="cl-d-save">儲存</button>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">附件</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px" id="cl-file-list">
+          ${(c.files || []).length === 0 ? '<div class="empty-hint">還沒有附件</div>' : (c.files || []).map((f, i) => fileTileHtml(f, i, c.id)).join('')}
+        </div>
+        <input class="input" type="file" id="cl-d-files" multiple accept="image/*,.txt,.md">
+      </div>
+      <button class="btn btn-ghost" style="color:var(--danger)" id="cl-del">🗑️ 刪除這筆紀錄</button>
+    `;
+
+    document.getElementById('back-btn').onclick = () => { selectedId = null; render(); };
+    document.getElementById('cl-d-save').onclick = () => {
+      DataStore.updateClientLog(c.id, {
+        conversation: document.getElementById('cl-d-conversation').value.trim(),
+        suggestion: document.getElementById('cl-d-suggestion').value.trim(),
+      });
+      render();
+    };
+    document.getElementById('cl-del').onclick = () => {
+      if (!confirm('確定要刪除這筆客戶紀錄嗎？')) return;
+      DataStore.deleteClientLog(c.id);
+      selectedId = null;
+      render();
+    };
+    document.getElementById('cl-d-files').onchange = async (e) => {
+      if (!e.target.files.length) return;
+      const newFiles = await handleFiles(e.target.files);
+      DataStore.updateClientLog(c.id, { files: [...(c.files || []), ...newFiles] });
+      render();
+    };
+    document.querySelectorAll('[data-del-file]').forEach(el => {
+      el.onclick = () => {
+        const idx = Number(el.dataset.delFile);
+        const files = (c.files || []).filter((_, i) => i !== idx);
+        DataStore.updateClientLog(c.id, { files });
+        render();
+      };
+    });
+    document.querySelectorAll('[data-view-img]').forEach(el => {
+      el.onclick = () => {
+        const idx = Number(el.dataset.viewImg);
+        const f = c.files[idx];
+        window.open(f.data, '_blank');
+      };
+    });
+  }
+
+  return { render };
+})();
+
+</script>
+<script>
 /* 長期目標頁 — 目標 + 拆解出的小方向 */
 window.Pages = window.Pages || {};
 Pages.goals = (function () {
@@ -4183,7 +4388,7 @@ Pages.goals = (function () {
 <script>
 /* 導覽路由 — 側邊欄切換頁面 */
 const App = (function () {
-  const pages = ['home', 'goals', 'projects', 'calendar', 'finance', 'creation'];
+  const pages = ['home', 'goals', 'projects', 'calendar', 'finance', 'creation', 'clients'];
 
   function goto(name) {
     pages.forEach(p => {
