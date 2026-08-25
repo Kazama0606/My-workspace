@@ -1007,6 +1007,7 @@ const DataStore = (function () {
     addClientLog: (data) => {
       const c = {
         id: uid(), clientName: data.clientName || '', date: data.date || todayStr(),
+        stage: data.stage || '潛在客戶', blocker: data.blocker || '', askUpline: data.askUpline || '',
         conversation: data.conversation || '', suggestion: data.suggestion || '',
         files: data.files || [], createdAt: Date.now(),
       };
@@ -4100,6 +4101,18 @@ window.Pages = window.Pages || {};
 Pages.clients = (function () {
   let selectedId = null;
   const MAX_IMG_DIM = 1000; // 圖片壓縮後最長邊(px)，避免手機截圖太大塞爆 localStorage
+  const STAGES = [
+    { key: '潛在客戶', bg: '#e5e7eb', fg: '#374151' },
+    { key: '邀約OPP', bg: '#fef3c7', fg: '#92400e' },
+    { key: '邀約LRC', bg: '#fde68a', fg: '#92400e' },
+    { key: '邀約BTC', bg: '#fed7aa', fg: '#9a3412' },
+    { key: '已加入', bg: '#bbf7d0', fg: '#166534' },
+    { key: '已成交', bg: '#bfdbfe', fg: '#1e40af' },
+  ];
+  function stageInfo(key) { return STAGES.find(s => s.key === key) || STAGES[0]; }
+  function stageOptionsHtml(selected) {
+    return STAGES.map(s => `<option value="${s.key}" ${s.key === selected ? 'selected' : ''}>${s.key}</option>`).join('');
+  }
 
   function render() {
     const root = document.getElementById('page-clients');
@@ -4158,9 +4171,14 @@ Pages.clients = (function () {
         <div class="form-row" style="margin-bottom:8px">
           <input class="input" id="cl-name" placeholder="客戶名稱，例如：吳馬克">
           <input class="input" type="date" id="cl-date" value="${DataStore.todayStr()}" style="max-width:160px">
+          <select class="input" id="cl-stage" style="max-width:140px">${stageOptionsHtml('潛在客戶')}</select>
         </div>
         <textarea class="input" id="cl-conversation" placeholder="對話紀錄，可以直接貼上聊天內容…" style="margin-bottom:8px;min-height:80px;resize:vertical"></textarea>
         <textarea class="input" id="cl-suggestion" placeholder="下一步建議（去問 Claude 之後貼在這裡）…" style="margin-bottom:8px;min-height:60px;resize:vertical"></textarea>
+        <div class="form-row" style="margin-bottom:8px">
+          <input class="input" id="cl-blocker" placeholder="目前卡點（例如：猶豫價格）">
+          <input class="input" id="cl-ask" placeholder="想問上線的問題">
+        </div>
         <input class="input" type="file" id="cl-files" multiple accept="image/*,.txt,.md" style="margin-bottom:8px">
         <div class="muted" style="font-size:12px;margin-bottom:8px">可以附加截圖或文字檔（例如逐字稿），圖片會自動壓縮</div>
         <button class="btn" style="background:var(--blue-accent);color:#fff" id="cl-add">新增</button>
@@ -4174,11 +4192,14 @@ Pages.clients = (function () {
       const btn = document.getElementById('cl-add');
       btn.disabled = true; btn.textContent = '處理中…';
       const date = document.getElementById('cl-date').value || DataStore.todayStr();
+      const stage = document.getElementById('cl-stage').value;
       const conversation = document.getElementById('cl-conversation').value.trim();
       const suggestion = document.getElementById('cl-suggestion').value.trim();
+      const blocker = document.getElementById('cl-blocker').value.trim();
+      const askUpline = document.getElementById('cl-ask').value.trim();
       const fileInput = document.getElementById('cl-files');
       const files = fileInput.files.length ? await handleFiles(fileInput.files) : [];
-      DataStore.addClientLog({ clientName, date, conversation, suggestion, files });
+      DataStore.addClientLog({ clientName, date, stage, conversation, suggestion, blocker, askUpline, files });
       render();
     };
 
@@ -4187,13 +4208,18 @@ Pages.clients = (function () {
       wrap.innerHTML = '<div class="empty-hint">還沒有紀錄，上面新增一筆開始吧</div>';
       return;
     }
-    wrap.innerHTML = `<div class="grid grid-2">${logs.map(c => `
+    wrap.innerHTML = `<div class="grid grid-2">${logs.map(c => {
+      const st = stageInfo(c.stage);
+      return `
       <div class="card" style="cursor:pointer" data-id="${c.id}">
         <div class="card-title"><span>${Util.esc(c.clientName)}</span><span class="tag">${c.date}</span></div>
-        ${c.conversation ? `<div class="muted" style="font-size:12px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Util.esc(c.conversation)}</div>` : '<div class="muted" style="font-size:12px;margin-bottom:6px">還沒有寫對話紀錄</div>'}
+        <span class="tag" style="background:${st.bg};color:${st.fg};margin-bottom:8px;display:inline-block">${st.key}</span>
+        ${c.conversation ? `<div class="muted" style="font-size:12px;margin:6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Util.esc(c.conversation)}</div>` : '<div class="muted" style="font-size:12px;margin:6px 0">還沒有寫對話紀錄</div>'}
+        ${c.blocker ? `<div style="font-size:12px;margin-bottom:4px">🚧 ${Util.esc(c.blocker)}</div>` : ''}
         <div style="font-size:12px" class="muted">${c.suggestion ? '✅ 已有下一步建議' : '⏳ 尚未填寫下一步建議'}${c.files && c.files.length ? ` · 📎 ${c.files.length} 個附件` : ''}</div>
       </div>
-    `).join('')}</div>`;
+    `;
+    }).join('')}</div>`;
     wrap.querySelectorAll('[data-id]').forEach(el => {
       el.onclick = () => { selectedId = el.dataset.id; render(); };
     });
@@ -4215,6 +4241,7 @@ Pages.clients = (function () {
 
   function renderDetail(root, id) {
     const c = DataStore.getClientLog(id);
+    const st = stageInfo(c.stage);
     root.innerHTML = `
       <div class="page-hd">
         <button class="link-btn" id="back-btn">← 回客戶紀錄列表</button>
@@ -4222,6 +4249,12 @@ Pages.clients = (function () {
         <div class="page-sub">${c.date}</div>
       </div>
       <div class="card" style="margin-bottom:16px">
+        <div class="card-title">客戶階段</div>
+        <select class="input" id="cl-d-stage" style="margin-bottom:8px;max-width:200px;background:${st.bg};color:${st.fg};font-weight:600">${stageOptionsHtml(c.stage)}</select>
+        <div class="form-row" style="margin-bottom:8px">
+          <input class="input" id="cl-d-blocker" placeholder="目前卡點" value="${Util.esc(c.blocker || '')}">
+          <input class="input" id="cl-d-ask" placeholder="想問上線的問題" value="${Util.esc(c.askUpline || '')}">
+        </div>
         <div class="card-title">對話紀錄</div>
         <textarea class="input" id="cl-d-conversation" style="margin-bottom:8px;min-height:120px;resize:vertical">${Util.esc(c.conversation)}</textarea>
         <div class="card-title">下一步建議（Claude AI）</div>
@@ -4239,8 +4272,15 @@ Pages.clients = (function () {
     `;
 
     document.getElementById('back-btn').onclick = () => { selectedId = null; render(); };
+    document.getElementById('cl-d-stage').onchange = (e) => {
+      const info = stageInfo(e.target.value);
+      e.target.style.background = info.bg; e.target.style.color = info.fg;
+    };
     document.getElementById('cl-d-save').onclick = () => {
       DataStore.updateClientLog(c.id, {
+        stage: document.getElementById('cl-d-stage').value,
+        blocker: document.getElementById('cl-d-blocker').value.trim(),
+        askUpline: document.getElementById('cl-d-ask').value.trim(),
         conversation: document.getElementById('cl-d-conversation').value.trim(),
         suggestion: document.getElementById('cl-d-suggestion').value.trim(),
       });
