@@ -1908,7 +1908,7 @@ const CalShared = (function () {
           }
           const cat = categoryOf(it);
           return `<div class="list-item" style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start">
-            <span class="tag" style="background:${cat.bg};color:${cat.fg};margin-top:2px">${Util.esc(cat.label)}</span>
+            <span class="tag" style="background:color-mix(in srgb, ${cat.bg} 20%, #fff);color:${cat.fg};border:2px dashed ${cat.bg};margin-top:2px">${Util.esc(cat.label)}</span>
             <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
               <div style="display:flex;align-items:center;gap:10px;min-width:0">
                 <span class="grow" style="color:#1a1a1a">${Util.esc(it.title)}</span>
