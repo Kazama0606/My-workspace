@@ -3150,20 +3150,20 @@ Pages.calendar = (function () {
           ${bulkCancelResult !== null ? `<div class="muted" style="font-size:12px;margin-top:8px">已取消 ${bulkCancelResult} 個原本會出現的行程項目 ✓</div>` : ''}
         `}
       </div>` : ''}
-      <div style="display:flex;gap:20px;align-items:stretch;margin-bottom:20px;flex-wrap:wrap">
+      <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap">
         <div class="card" id="cal-card" style="flex:1 1 480px;display:flex;flex-direction:column;min-width:0">
           <div class="cal-hd">
             <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
             <b>${viewYear} 年 ${viewMonth + 1} 月</b>
             <button class="btn btn-ghost btn-sm" id="next-m">→</button>
           </div>
-          <div class="cal-grid cal-grid-compact" id="cal-grid" style="flex:1"></div>
+          <div class="cal-grid cal-grid-compact" id="cal-grid"></div>
+          <div id="habits-embed" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)"></div>
         </div>
         <div id="side-col" style="flex:0 0 300px;min-width:0;max-width:300px;display:flex;flex-direction:column">
           <div id="day-panel" style="display:flex;flex-direction:column;flex:1;min-width:0"></div>
         </div>
       </div>
-      <div class="card" id="habits-embed" style="margin-bottom:20px"></div>
     `;
     document.getElementById('prev-m').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
     document.getElementById('next-m').onclick = () => { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); };
@@ -3184,21 +3184,6 @@ Pages.calendar = (function () {
     dayPanel.render(document.getElementById('day-panel'));
     Pages.habits.render('habits-embed');
     bindKeyboardNav();
-    syncColumnHeights();
-  }
-
-  // CSS 的拉伸對齊在這個巢狀 flex/grid 組合下常常算不準，改用 JS 量出兩欄實際高度，
-  // 直接取比較高的那個當作兩欄的最小高度，確保視覺上一定等高
-  function syncColumnHeights() {
-    requestAnimationFrame(() => {
-      const left = document.getElementById('cal-card');
-      const right = document.getElementById('side-col');
-      if (!left || !right) return;
-      // 桌面版之前會把左邊月曆跟右邊行程面板強制拉成一樣高，但月曆格子多、行程面板內容短的時候，
-      // 短的那邊下面會被撐出一大塊空白，看起來很怪，所以整個拿掉，兩欄各自照自己內容多高就多高
-      left.style.minHeight = '';
-      right.style.minHeight = '';
-    });
   }
 
   function renderGrid() {
