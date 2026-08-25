@@ -645,6 +645,11 @@ const CloudSync = (function () {
   let pushTimer = null;
   let pollTimer = null;
   let applyingRemote = false; // 遠端資料寫回本機的當下先擋住推送，避免自己推給自己造成無限迴圈
+  // 新裝置/新網域第一次打開時，本機是空的，程式會自動塞幾筆範例資料，如果這個當下立刻推上雲端，
+  // 可能會搶在「跟雲端比對、確認要不要套用雲端資料」這個檢查完成之前，把真正的雲端資料蓋掉。
+  // 所以剛打開網頁的這段時間先把推送「排隊」，等第一次跟雲端的比對確定完成後才真的送出。
+  let allowPush = false;
+  let queuedPush = null;
 
   function setStatus(text, color) {
     const el = document.getElementById('cloud-sync-status');
@@ -653,6 +658,7 @@ const CloudSync = (function () {
 
   function push(payloadStr, updatedAt) {
     if (applyingRemote) return;
+    if (!allowPush) { queuedPush = { payloadStr, updatedAt }; return; }
     clearTimeout(pushTimer);
     setStatus('☁️ 同步中…', '#999');
     pushTimer = setTimeout(() => {
@@ -669,25 +675,39 @@ const CloudSync = (function () {
     }, 1000);
   }
 
+  // 第一次跟雲端比對完成(不管是套用了雲端資料、還是使用者選擇保留本機)後呼叫這個，才真的放行推送，
+  // 排隊中如果有最新一筆待推送的資料，這時候補推上去
+  function releaseQueuedPush() {
+    allowPush = true;
+    if (queuedPush) {
+      const q = queuedPush;
+      queuedPush = null;
+      push(q.payloadStr, q.updatedAt);
+    }
+  }
+
   function pullOnce(onRemoteChange) {
     fetch(DOC_URL)
       .then(res => {
-        if (res.status === 404) { setStatus('☁️ 尚未同步過(還沒有雲端資料)', '#999'); return null; }
+        if (res.status === 404) { setStatus('☁️ 尚未同步過(還沒有雲端資料)', '#999'); releaseQueuedPush(); return null; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       })
       .then(data => {
-        if (!data || !data.fields) return;
+        if (!data || !data.fields) { releaseQueuedPush(); return; }
         const payloadStr = data.fields.payload && data.fields.payload.stringValue;
         const updatedAt = data.fields.updatedAt && Number(data.fields.updatedAt.integerValue);
         if (payloadStr && updatedAt) {
           onRemoteChange(payloadStr, updatedAt);
           setStatus('☁️ 已同步', '#2b7fd1');
+        } else {
+          releaseQueuedPush();
         }
       })
       .catch(e => {
         console.warn('讀取雲端失敗', e);
         setStatus('⚠️ 同步失敗：' + (e && e.message ? e.message : e), '#c0392b');
+        releaseQueuedPush(); // 讀取失敗也先放行推送，避免網路一直不順時卡死、永遠存不出去
       });
   }
 
@@ -700,7 +720,7 @@ const CloudSync = (function () {
   }
 
   return {
-    push, listen,
+    push, listen, releaseQueuedPush,
     isEnabled: () => true,
     setApplyingRemote: (v) => { applyingRemote = v; },
   };
@@ -4510,6 +4530,32 @@ function estimateDataRichness(db) {
   return keys.reduce((sum, k) => sum + (Array.isArray(db[k]) ? db[k].length : 0), 0);
 }
 
+// 資料落差確認：改用網頁自己畫面上的提示框(不是瀏覽器原生 confirm())，因為 confirm() 有時候會卡在畫面看不到的地方，
+// 讓使用者以為「當機」，其實只是背景在等一個看不見的視窗回應。這個提示框保證畫面上一定看得到、蓋在最上層。
+function showDataLossModal(localRichness, remoteRichness, onApplyRemote, onKeepLocal) {
+  const old = document.getElementById('dataloss-modal-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'dataloss-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-size:16px;font-weight:700;margin-bottom:12px">⚠️ 注意：雲端資料比本機少很多</div>
+      <div style="font-size:14px;line-height:1.7;margin-bottom:18px;color:#333">
+        本機約 <b>${localRichness}</b> 筆、雲端約 <b>${remoteRichness}</b> 筆。<br>
+        直接套用雲端資料可能會蓋掉這台裝置上比較完整的內容。
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button id="dataloss-keep-local" style="padding:12px;border-radius:8px;border:none;background:#2b7fd1;color:#fff;font-weight:600;cursor:pointer;font-size:14px">保留本機這份（比較多），推上雲端覆蓋</button>
+        <button id="dataloss-apply-remote" style="padding:12px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#666;cursor:pointer;font-size:14px">仍要套用雲端這份（比較少）</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('dataloss-keep-local').onclick = () => { overlay.remove(); onKeepLocal(); };
+  document.getElementById('dataloss-apply-remote').onclick = () => { overlay.remove(); onApplyRemote(); };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   App.init();
   // 打開網頁時檢查雲端有沒有更新的資料(例如剛剛在別的裝置上改過)，有的話就套用並重新整理目前畫面。
@@ -4523,34 +4569,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const localRichness = estimateDataRichness(DataStore.exportRaw ? DataStore.exportRaw() : null);
         const remoteRichness = estimateDataRichness(remoteDb);
         const looksLikeDataLoss = localRichness > 0 && remoteRichness < localRichness;
-        if (looksLikeDataLoss) {
-          const proceed = confirm(
-            `⚠️ 注意：雲端上的資料看起來比目前這台裝置少很多（本機約 ${localRichness} 筆、雲端約 ${remoteRichness} 筆）。\n\n` +
-            `直接套用雲端資料可能會蓋掉這台裝置上比較完整的內容。\n\n` +
-            `按「確定」= 仍要套用雲端這份(比較少的)資料\n按「取消」= 保留本機這份(比較多的)資料，不套用雲端`
-          );
-          if (!proceed) {
-            console.warn('偵測到雲端資料明顯比本機少，使用者選擇不套用，保留本機資料並推上雲端覆蓋掉舊的');
-            // 把本機這份(比較完整的)資料主動推上雲端，蓋掉雲端那份過期/較少的資料，
-            // 這樣下次輪詢比對時間戳記，雲端就會是最新的，不會再重複跳出同樣的確認視窗
-            const localDb = DataStore.exportRaw ? DataStore.exportRaw() : null;
-            if (localDb) {
-              localDb.updatedAt = Date.now();
-              localStorage.setItem('dashboard_template_v1', JSON.stringify(localDb));
-              CloudSync.push(JSON.stringify(localDb), localDb.updatedAt);
-            }
-            return;
+
+        function applyRemoteNow() {
+          CloudSync.setApplyingRemote(true);
+          DataStore.replaceAll(remoteDb);
+          CloudSync.setApplyingRemote(false);
+          CloudSync.releaseQueuedPush();
+          const activePage = document.querySelector('.page.active');
+          if (activePage) {
+            const name = activePage.id.replace('page-', '');
+            if (Pages[name] && Pages[name].render) Pages[name].render();
           }
         }
-        CloudSync.setApplyingRemote(true);
-        DataStore.replaceAll(remoteDb);
-        CloudSync.setApplyingRemote(false);
-        const activePage = document.querySelector('.page.active');
-        if (activePage) {
-          const name = activePage.id.replace('page-', '');
-          if (Pages[name] && Pages[name].render) Pages[name].render();
+        function keepLocalAndPush() {
+          console.warn('偵測到雲端資料明顯比本機少，使用者選擇不套用，保留本機資料並推上雲端覆蓋掉舊的');
+          CloudSync.releaseQueuedPush();
+          // 把本機這份(比較完整的)資料主動推上雲端，蓋掉雲端那份過期/較少的資料，
+          // 這樣下次輪詢比對時間戳記，雲端就會是最新的，不會再重複跳出同樣的確認視窗
+          const localDb = DataStore.exportRaw ? DataStore.exportRaw() : null;
+          if (localDb) {
+            localDb.updatedAt = Date.now();
+            localStorage.setItem('dashboard_template_v1', JSON.stringify(localDb));
+            CloudSync.push(JSON.stringify(localDb), localDb.updatedAt);
+          }
         }
+
+        if (looksLikeDataLoss) {
+          showDataLossModal(localRichness, remoteRichness, applyRemoteNow, keepLocalAndPush);
+          return;
+        }
+        applyRemoteNow();
       } catch (e) { console.warn('套用雲端資料失敗', e); }
+    } else {
+      // 雲端沒有比本機新，代表這台裝置的資料本來就是新的(或一樣新)，沒有被覆蓋的風險，可以直接放行推送
+      CloudSync.releaseQueuedPush();
     }
   });
 });
