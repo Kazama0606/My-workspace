@@ -4568,7 +4568,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const remoteDb = JSON.parse(payloadStr);
         const localRichness = estimateDataRichness(DataStore.exportRaw ? DataStore.exportRaw() : null);
         const remoteRichness = estimateDataRichness(remoteDb);
-        const looksLikeDataLoss = localRichness > 0 && remoteRichness < localRichness;
+        // 門檻放寬：只有雲端「明顯」比本機少(差超過3筆、而且不到本機的7成)才跳出來確認，
+        // 一般多裝置使用時，各自剛好還沒同步到的一點點正常落差不會再一直誤觸發
+        const looksLikeDataLoss = localRichness > 0 && remoteRichness < localRichness - 3 && remoteRichness < localRichness * 0.7;
 
         function applyRemoteNow() {
           CloudSync.setApplyingRemote(true);
