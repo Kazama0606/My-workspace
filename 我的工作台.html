@@ -729,6 +729,12 @@ const DataStore = (function () {
 
   const db = load();
 
+  // 客戶階段標籤改成可複選(陣列)，把舊資料的單一 stage 字串轉成 stages 陣列，相容之前存的紀錄
+  (db.clientLogs || []).forEach(c => {
+    if (!c.stages) c.stages = c.stage ? [c.stage] : [];
+    delete c.stage;
+  });
+
   function save() {
     db.updatedAt = Date.now();
     localStorage.setItem(KEY, JSON.stringify(db));
@@ -1007,7 +1013,7 @@ const DataStore = (function () {
     addClientLog: (data) => {
       const c = {
         id: uid(), clientName: data.clientName || '', date: data.date || todayStr(),
-        stage: data.stage || '潛在客戶', blocker: data.blocker || '', askUpline: data.askUpline || '',
+        stages: data.stages || [], blocker: data.blocker || '', askUpline: data.askUpline || '',
         conversation: data.conversation || '', suggestion: data.suggestion || '',
         files: data.files || [], createdAt: Date.now(),
       };
@@ -4110,8 +4116,28 @@ Pages.clients = (function () {
     { key: '已成交', bg: '#bfdbfe', fg: '#1e40af' },
   ];
   function stageInfo(key) { return STAGES.find(s => s.key === key) || STAGES[0]; }
-  function stageOptionsHtml(selected) {
-    return STAGES.map(s => `<option value="${s.key}" ${s.key === selected ? 'selected' : ''}>${s.key}</option>`).join('');
+  function stageCheckboxesHtml(idPrefix, selected) {
+    const sel = selected || [];
+    return `<div style="display:flex;flex-wrap:wrap;gap:8px 14px">
+      ${STAGES.map(s => `
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;padding:4px 10px;border-radius:16px;background:${sel.includes(s.key) ? s.bg : '#f2f0ea'};color:${sel.includes(s.key) ? s.fg : '#666'}">
+          <input type="checkbox" class="${idPrefix}-stage-cb" value="${s.key}" ${sel.includes(s.key) ? 'checked' : ''} style="margin:0">${s.key}
+        </label>
+      `).join('')}
+    </div>`;
+  }
+  function wireStageCheckboxes(idPrefix) {
+    document.querySelectorAll(`.${idPrefix}-stage-cb`).forEach(cb => {
+      cb.onchange = () => {
+        const info = stageInfo(cb.value);
+        const label = cb.closest('label');
+        if (cb.checked) { label.style.background = info.bg; label.style.color = info.fg; }
+        else { label.style.background = '#f2f0ea'; label.style.color = '#666'; }
+      };
+    });
+  }
+  function getCheckedStages(idPrefix) {
+    return Array.from(document.querySelectorAll(`.${idPrefix}-stage-cb:checked`)).map(cb => cb.value);
   }
 
   function render() {
@@ -4171,8 +4197,9 @@ Pages.clients = (function () {
         <div class="form-row" style="margin-bottom:8px">
           <input class="input" id="cl-name" placeholder="客戶名稱，例如：吳馬克">
           <input class="input" type="date" id="cl-date" value="${DataStore.todayStr()}" style="max-width:160px">
-          <select class="input" id="cl-stage" style="max-width:140px">${stageOptionsHtml('潛在客戶')}</select>
         </div>
+        <div class="muted" style="font-size:12px;margin-bottom:6px">客戶階段（可複選）</div>
+        <div style="margin-bottom:12px">${stageCheckboxesHtml('cl', [])}</div>
         <textarea class="input" id="cl-conversation" placeholder="對話紀錄，可以直接貼上聊天內容…" style="margin-bottom:8px;min-height:80px;resize:vertical"></textarea>
         <textarea class="input" id="cl-suggestion" placeholder="下一步建議（去問 Claude 之後貼在這裡）…" style="margin-bottom:8px;min-height:60px;resize:vertical"></textarea>
         <div class="form-row" style="margin-bottom:8px">
@@ -4185,6 +4212,7 @@ Pages.clients = (function () {
       </div>
       <div id="client-cards"></div>
     `;
+    wireStageCheckboxes('cl');
 
     document.getElementById('cl-add').onclick = async () => {
       const clientName = document.getElementById('cl-name').value.trim();
@@ -4192,14 +4220,14 @@ Pages.clients = (function () {
       const btn = document.getElementById('cl-add');
       btn.disabled = true; btn.textContent = '處理中…';
       const date = document.getElementById('cl-date').value || DataStore.todayStr();
-      const stage = document.getElementById('cl-stage').value;
+      const stages = getCheckedStages('cl');
       const conversation = document.getElementById('cl-conversation').value.trim();
       const suggestion = document.getElementById('cl-suggestion').value.trim();
       const blocker = document.getElementById('cl-blocker').value.trim();
       const askUpline = document.getElementById('cl-ask').value.trim();
       const fileInput = document.getElementById('cl-files');
       const files = fileInput.files.length ? await handleFiles(fileInput.files) : [];
-      DataStore.addClientLog({ clientName, date, stage, conversation, suggestion, blocker, askUpline, files });
+      DataStore.addClientLog({ clientName, date, stages, conversation, suggestion, blocker, askUpline, files });
       render();
     };
 
@@ -4209,12 +4237,14 @@ Pages.clients = (function () {
       return;
     }
     wrap.innerHTML = `<div class="grid grid-2">${logs.map(c => {
-      const st = stageInfo(c.stage);
+      const stages = c.stages || [];
       return `
       <div class="card" style="cursor:pointer" data-id="${c.id}">
         <div class="card-title"><span>${Util.esc(c.clientName)}</span><span class="tag">${c.date}</span></div>
-        <span class="tag" style="background:${st.bg};color:${st.fg};margin-bottom:8px;display:inline-block">${st.key}</span>
-        ${c.conversation ? `<div class="muted" style="font-size:12px;margin:6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Util.esc(c.conversation)}</div>` : '<div class="muted" style="font-size:12px;margin:6px 0">還沒有寫對話紀錄</div>'}
+        <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:4px">
+          ${stages.length === 0 ? '' : stages.map(sk => { const st = stageInfo(sk); return `<span class="tag" style="background:${st.bg};color:${st.fg}">${st.key}</span>`; }).join('')}
+        </div>
+        ${c.conversation ? `<div class="muted" style="font-size:12px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Util.esc(c.conversation)}</div>` : '<div class="muted" style="font-size:12px;margin-bottom:6px">還沒有寫對話紀錄</div>'}
         ${c.blocker ? `<div style="font-size:12px;margin-bottom:4px">🚧 ${Util.esc(c.blocker)}</div>` : ''}
         <div style="font-size:12px" class="muted">${c.suggestion ? '✅ 已有下一步建議' : '⏳ 尚未填寫下一步建議'}${c.files && c.files.length ? ` · 📎 ${c.files.length} 個附件` : ''}</div>
       </div>
@@ -4241,7 +4271,6 @@ Pages.clients = (function () {
 
   function renderDetail(root, id) {
     const c = DataStore.getClientLog(id);
-    const st = stageInfo(c.stage);
     root.innerHTML = `
       <div class="page-hd">
         <button class="link-btn" id="back-btn">← 回客戶紀錄列表</button>
@@ -4249,8 +4278,8 @@ Pages.clients = (function () {
         <div class="page-sub">${c.date}</div>
       </div>
       <div class="card" style="margin-bottom:16px">
-        <div class="card-title">客戶階段</div>
-        <select class="input" id="cl-d-stage" style="margin-bottom:8px;max-width:200px;background:${st.bg};color:${st.fg};font-weight:600">${stageOptionsHtml(c.stage)}</select>
+        <div class="card-title">客戶階段（可複選）</div>
+        <div style="margin-bottom:12px">${stageCheckboxesHtml('cld', c.stages || [])}</div>
         <div class="form-row" style="margin-bottom:8px">
           <input class="input" id="cl-d-blocker" placeholder="目前卡點" value="${Util.esc(c.blocker || '')}">
           <input class="input" id="cl-d-ask" placeholder="想問上線的問題" value="${Util.esc(c.askUpline || '')}">
@@ -4270,15 +4299,12 @@ Pages.clients = (function () {
       </div>
       <button class="btn btn-ghost" style="color:var(--danger)" id="cl-del">🗑️ 刪除這筆紀錄</button>
     `;
+    wireStageCheckboxes('cld');
 
     document.getElementById('back-btn').onclick = () => { selectedId = null; render(); };
-    document.getElementById('cl-d-stage').onchange = (e) => {
-      const info = stageInfo(e.target.value);
-      e.target.style.background = info.bg; e.target.style.color = info.fg;
-    };
     document.getElementById('cl-d-save').onclick = () => {
       DataStore.updateClientLog(c.id, {
-        stage: document.getElementById('cl-d-stage').value,
+        stages: getCheckedStages('cld'),
         blocker: document.getElementById('cl-d-blocker').value.trim(),
         askUpline: document.getElementById('cl-d-ask').value.trim(),
         conversation: document.getElementById('cl-d-conversation').value.trim(),
