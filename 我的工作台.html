@@ -536,7 +536,9 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
 
   /* ── 行事曆／首頁小月曆：右側欄改成疊在下面，不再擠成一條 300px 的細欄 ── */
   #home-cal-row { grid-template-columns: 1fr !important; }
-  #cal-left-col, #side-col { flex: 1 1 100% !important; min-width: 0 !important; max-width: none !important; min-height: 0 !important; }
+  /* 手機版：桌面版的月曆/新增行程/今日習慣/新增待辦是 2x2 對齊格線，手機螢幕窄，改成單欄由上而下自然排列 */
+  #cal-2x2 { display: flex !important; flex-direction: column !important; }
+  #cal-2x2 > * { width: 100% !important; max-width: none !important; min-width: 0 !important; }
   .cal-grid { gap: 3px; }
   .cal-week-grid, .cal-dow-row { gap: 3px; }
   .cal-cell, .cal-grid-compact .cal-cell { height: 150px; min-height: 150px; padding: 4px; font-size: 11px; aspect-ratio: auto !important; }
@@ -1791,7 +1793,7 @@ const CalShared = (function () {
     let startInputEl = null;
     let endInputEl = null;
 
-    function render(panelEl) {
+    function render(panelEl, todoEl) {
       const selectedDate = opts.getSelected();
       const readOnly = !!opts.readOnly;
       pickMode = null;
@@ -1962,6 +1964,23 @@ const CalShared = (function () {
         </div>`;
       }
 
+      const todoCardHtml = readOnly ? '' : `
+        <div class="card" id="${uid}-todo-card" data-daypanel-part="todo" style="display:flex;flex-direction:column;flex:1">
+          <div class="card-title">✅ 新增待辦（${selectedDate}）</div>
+          <input class="input" id="${uid}-todo-title" placeholder="待辦事項內容" style="margin-bottom:8px">
+          <div class="form-row" style="margin-top:auto">
+            <select class="input" id="${uid}-todo-flag" style="flex:0 0 130px">
+              <option value="">（無標記）</option>
+              <option value="‼️">‼️ 緊急</option>
+              <option value="⚠️">⚠️ 警告</option>
+              <option value="🔥">🔥 燒眉毛</option>
+              <option value="⭐">⭐ 重要</option>
+              <option value="📌">📌 釘選</option>
+            </select>
+            <button class="btn" style="background:var(--mint-accent);color:#fff;white-space:nowrap" id="${uid}-todo-add">新增待辦</button>
+          </div>
+        </div>`;
+
       panelEl.innerHTML = `
         <div class="card" style="margin-bottom:18px" data-daypanel-part="info">
           <div class="card-title">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
@@ -1969,7 +1988,7 @@ const CalShared = (function () {
           <div class="card-title" style="margin-top:16px">✅ 待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
-        ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column">
+        ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
           <div class="card-title">新增行程</div>
           <input class="input" id="${uid}-ev-title" placeholder="行程內容" style="margin-bottom:8px">
           ${categoryFieldHtml(`${uid}-ev-cat`, '', 'green')}
@@ -2008,23 +2027,10 @@ const CalShared = (function () {
           </div>
           <textarea class="input" id="${uid}-ev-note" placeholder="備註（選填）" style="margin-bottom:8px;min-height:44px;resize:vertical"></textarea>
           <button class="btn" style="background:var(--blue-accent);color:#fff;width:100%;margin-top:auto" id="${uid}-ev-add">新增</button>
-        </div>
-        <div class="card" id="${uid}-todo-card" data-daypanel-part="todo" style="margin-top:18px;display:flex;flex-direction:column;flex:1">
-          <div class="card-title">✅ 新增待辦（${selectedDate}）</div>
-          <input class="input" id="${uid}-todo-title" placeholder="待辦事項內容" style="margin-bottom:8px">
-          <div class="form-row" style="margin-top:auto">
-            <select class="input" id="${uid}-todo-flag" style="flex:0 0 130px">
-              <option value="">（無標記）</option>
-              <option value="‼️">‼️ 緊急</option>
-              <option value="⚠️">⚠️ 警告</option>
-              <option value="🔥">🔥 燒眉毛</option>
-              <option value="⭐">⭐ 重要</option>
-              <option value="📌">📌 釘選</option>
-            </select>
-            <button class="btn" style="background:var(--mint-accent);color:#fff;white-space:nowrap" id="${uid}-todo-add">新增待辦</button>
-          </div>
         </div>`}
+        ${todoEl ? '' : todoCardHtml}
       `;
+      if (todoEl) { todoEl.innerHTML = todoCardHtml; }
 
       // 待辦事項的勾選框不管是不是唯讀模式都會顯示(可以打勾完成)，所以要在下面的 readOnly 提前 return 之前先綁定
       panelEl.querySelectorAll('[data-toggle-task]').forEach(el => {
@@ -3150,21 +3156,20 @@ Pages.calendar = (function () {
           ${bulkCancelResult !== null ? `<div class="muted" style="font-size:12px;margin-top:8px">已取消 ${bulkCancelResult} 個原本會出現的行程項目 ✓</div>` : ''}
         `}
       </div>` : ''}
-      <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap">
-        <div id="cal-left-col" style="flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:20px">
-          <div class="card" id="cal-card" style="display:flex;flex-direction:column;min-width:0">
-            <div class="cal-hd">
-              <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
-              <b>${viewYear} 年 ${viewMonth + 1} 月</b>
-              <button class="btn btn-ghost btn-sm" id="next-m">→</button>
-            </div>
-            <div class="cal-grid cal-grid-compact" id="cal-grid"></div>
+      <div id="cal-2x2" style="display:grid;grid-template-columns:1fr 300px;grid-template-rows:auto auto;gap:20px;align-items:stretch;margin-bottom:20px">
+        <div class="card" id="cal-card" style="grid-column:1;grid-row:1;display:flex;flex-direction:column;min-width:0">
+          <div class="cal-hd">
+            <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
+            <b>${viewYear} 年 ${viewMonth + 1} 月</b>
+            <button class="btn btn-ghost btn-sm" id="next-m">→</button>
           </div>
-          <div class="card" id="habits-embed"></div>
+          <div class="cal-grid cal-grid-compact" id="cal-grid" style="flex:1"></div>
         </div>
-        <div id="side-col" style="flex:0 0 300px;min-width:0;max-width:300px;display:flex;flex-direction:column">
+        <div id="side-col" style="grid-column:2;grid-row:1;min-width:0;max-width:300px;display:flex;flex-direction:column;gap:18px">
           <div id="day-panel" style="display:flex;flex-direction:column;flex:1;min-width:0"></div>
         </div>
+        <div class="card" id="habits-embed" style="grid-column:1;grid-row:2"></div>
+        <div id="todo-col" style="grid-column:2;grid-row:2;min-width:0;max-width:300px;display:flex;flex-direction:column"></div>
       </div>
     `;
     document.getElementById('prev-m').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
@@ -3183,36 +3188,11 @@ Pages.calendar = (function () {
       };
     }
     renderGrid();
-    dayPanel.render(document.getElementById('day-panel'));
+    dayPanel.render(document.getElementById('day-panel'), document.getElementById('todo-col'));
     Pages.habits.render('habits-embed');
     bindKeyboardNav();
-    alignDayPanelCards();
   }
 
-  // 桌面版：讓「新增行程」卡片底部對齊月曆底部、「新增待辦」卡片底部對齊「今日習慣」底部，
-  // 靠量實際高度、補足差額(min-height)做到；手機版兩欄是上下疊的，不需要對齊，略過
-  function alignDayPanelCards() {
-    requestAnimationFrame(() => {
-      const eventForm = document.querySelector('[data-daypanel-part="eventform"]');
-      const todoCard = document.querySelector('[data-daypanel-part="todo"]');
-      const calCard = document.getElementById('cal-card');
-      const habitsCard = document.getElementById('habits-embed');
-      if (!eventForm || !todoCard || !calCard || !habitsCard) return;
-      eventForm.style.minHeight = '';
-      todoCard.style.minHeight = '';
-      if (window.innerWidth <= 860) return;
-      const calBottom = calCard.getBoundingClientRect().bottom;
-      const eventFormTop = eventForm.getBoundingClientRect().top;
-      const eventFormNeeded = calBottom - eventFormTop;
-      if (eventFormNeeded > eventForm.offsetHeight) eventForm.style.minHeight = eventFormNeeded + 'px';
-      requestAnimationFrame(() => {
-        const habitsBottom = habitsCard.getBoundingClientRect().bottom;
-        const todoTop = todoCard.getBoundingClientRect().top;
-        const todoNeeded = habitsBottom - todoTop;
-        if (todoNeeded > todoCard.offsetHeight) todoCard.style.minHeight = todoNeeded + 'px';
-      });
-    });
-  }
 
   function renderGrid() {
     const grid = document.getElementById('cal-grid');
