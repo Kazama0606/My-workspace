@@ -1888,7 +1888,7 @@ const CalShared = (function () {
           }
           const cat = categoryOf(it);
           return `<div class="list-item" style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start">
-            <span class="tag" style="background:${cat.bg};color:${cat.fg};margin-top:2px">🔁 ${Util.esc(cat.label)}</span>
+            <span class="tag" style="background:${cat.bg};color:${cat.fg};margin-top:2px">${Util.esc(cat.label)}</span>
             <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
               <div style="display:flex;align-items:center;gap:10px;min-width:0">
                 <span class="grow" style="color:#1a1a1a">${Util.esc(it.title)}</span>
@@ -3451,7 +3451,7 @@ Pages.calendar = (function () {
         gridHtml += `<div class="day-grid-block day-timeline-pill" style="grid-column:2;grid-row:${r1} / ${r2};background:var(--mint-accent-bg);color:#1a1a1a;${laneStyle}"><div class="day-timeline-pill-title">${Util.esc(it.title)}</div></div>`;
         return;
       }
-      const prefix = it.kind === 'recurring' ? '🔁 ' : '';
+      const prefix = '';
       const isMultiDay = it.kind === 'event' && it.endDate && it.endDate > it.date;
       const trueStartDay = ds === it.date;
       const trueEndDay = isMultiDay && ds === it.endDate;
@@ -3632,7 +3632,7 @@ Pages.calendar = (function () {
       return `<div class="day-hour-pill" style="background:var(--mint-accent-bg);color:#1a1a1a">${Util.esc(it.title)}</div>`;
     }
     const cat = CalShared.categoryOf(it);
-    const prefix = it.kind === 'recurring' ? '🔁 ' : '';
+    const prefix = '';
     const timeStr = it.kind === 'event' ? Util.eventSpanLabel(it) : Util.timeRange(it.startTime, it.endTime);
     return `<div class="day-hour-pill" style="background:${cat.bg};color:${cat.fg}">${prefix}${timeStr ? `${timeStr} ` : ''}${Util.esc(it.title)}</div>`;
   }
