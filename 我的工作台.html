@@ -526,6 +526,8 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
   .hero { flex-direction: column; align-items: flex-start; gap: 10px; }
   /* 行事曆「← 年月 →」那排在手機上太窄，左右箭頭按鈕加大一點比較好點 */
   .cal-hd { gap: 8px; }
+  /* 首頁「當天行程」卡片在手機單欄排列時，不需要強制跟其他卡片一樣高，內容多短就多短，不留空白 */
+  #home-cal-panel > .card { min-height: 0; }
   .cal-hd .btn-sm { padding: 8px 16px; font-size: 15px; }
   .amt-wrap { flex: 0 0 130px; }
   .embed-frame { height: calc(100vh - 160px); min-height: 480px; }
