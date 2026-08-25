@@ -3194,13 +3194,10 @@ Pages.calendar = (function () {
       const left = document.getElementById('cal-card');
       const right = document.getElementById('side-col');
       if (!left || !right) return;
+      // 桌面版之前會把左邊月曆跟右邊行程面板強制拉成一樣高，但月曆格子多、行程面板內容短的時候，
+      // 短的那邊下面會被撐出一大塊空白，看起來很怪，所以整個拿掉，兩欄各自照自己內容多高就多高
       left.style.minHeight = '';
       right.style.minHeight = '';
-      // 手機版兩欄會疊成上下兩排，不是左右並排，硬把兩邊撐成一樣高只會在下面留一大片空白，所以只在桌面版(並排時)才對齊高度
-      if (window.innerWidth <= 860) return;
-      const maxHeight = Math.max(left.offsetHeight, right.offsetHeight);
-      left.style.minHeight = maxHeight + 'px';
-      right.style.minHeight = maxHeight + 'px';
     });
   }
 
