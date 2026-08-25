@@ -536,7 +536,7 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
 
   /* ── 行事曆／首頁小月曆：右側欄改成疊在下面，不再擠成一條 300px 的細欄 ── */
   #home-cal-row { grid-template-columns: 1fr !important; }
-  #cal-card, #side-col { flex: 1 1 100% !important; min-width: 0 !important; max-width: none !important; min-height: 0 !important; }
+  #cal-left-col, #side-col { flex: 1 1 100% !important; min-width: 0 !important; max-width: none !important; min-height: 0 !important; }
   .cal-grid { gap: 3px; }
   .cal-week-grid, .cal-dow-row { gap: 3px; }
   .cal-cell, .cal-grid-compact .cal-cell { height: 150px; min-height: 150px; padding: 4px; font-size: 11px; aspect-ratio: auto !important; }
@@ -3151,14 +3151,16 @@ Pages.calendar = (function () {
         `}
       </div>` : ''}
       <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap">
-        <div class="card" id="cal-card" style="flex:1 1 480px;display:flex;flex-direction:column;min-width:0">
-          <div class="cal-hd">
-            <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
-            <b>${viewYear} 年 ${viewMonth + 1} 月</b>
-            <button class="btn btn-ghost btn-sm" id="next-m">→</button>
+        <div id="cal-left-col" style="flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:20px">
+          <div class="card" id="cal-card" style="display:flex;flex-direction:column;min-width:0">
+            <div class="cal-hd">
+              <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
+              <b>${viewYear} 年 ${viewMonth + 1} 月</b>
+              <button class="btn btn-ghost btn-sm" id="next-m">→</button>
+            </div>
+            <div class="cal-grid cal-grid-compact" id="cal-grid"></div>
           </div>
-          <div class="cal-grid cal-grid-compact" id="cal-grid"></div>
-          <div id="habits-embed" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)"></div>
+          <div class="card" id="habits-embed"></div>
         </div>
         <div id="side-col" style="flex:0 0 300px;min-width:0;max-width:300px;display:flex;flex-direction:column">
           <div id="day-panel" style="display:flex;flex-direction:column;flex:1;min-width:0"></div>
