@@ -2348,9 +2348,12 @@ const WeatherService = (function () {
     return '';
   }
 
+  let pendingCallbacks = []; // fetch進行中時，後面又進來的呼叫先排隊，等資料回來後一次全部通知，不會被漏掉
+
   function ensureFetched(onReady) {
     if (cache) { onReady(cache); return; }
-    if (fetching) return;
+    pendingCallbacks.push(onReady);
+    if (fetching) return; // 已經有人在抓了，等它抓完會一起通知，這裡不用重複發request
     fetching = true;
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTaipei&forecast_days=7`)
       .then(res => res.json())
@@ -2366,9 +2369,15 @@ const WeatherService = (function () {
           };
         });
         fetching = false;
-        onReady(cache);
+        const callbacks = pendingCallbacks;
+        pendingCallbacks = [];
+        callbacks.forEach(cb => cb(cache));
       })
-      .catch(e => { console.warn('抓取天氣失敗', e); fetching = false; });
+      .catch(e => {
+        console.warn('抓取天氣失敗', e);
+        fetching = false;
+        pendingCallbacks = [];
+      });
   }
 
   // 找畫面上所有 data-weather-date 的小方塊，把對應日期的天氣圖示塞進去(只有抓得到預報的未來7天內會有圖示，其他天保持空白)
