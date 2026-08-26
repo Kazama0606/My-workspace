@@ -2427,10 +2427,14 @@ Pages.home = (function () {
       <div class="grid grid-2" style="margin-bottom:16px">
         ${card('🎯 長期目標', goals.length === 0 ? '<div class="empty-hint">還沒有設定目標</div>' : `
           <div class="goal-preview-grid">
-            ${goals.slice(0, 6).map(g => `<div>
-              <div class="goal-preview-item">${Util.esc(g.text)}</div>
-              ${g.weekAction ? `<div class="muted" style="font-size:13px;font-weight:400;margin-top:2px">📅 這週：${Util.esc(g.weekAction)}</div>` : ''}
-            </div>`).join('')}
+            ${goals.slice(0, 6).map(g => {
+              const subs = DataStore.getSubgoals(g.id).filter(s => !s.done).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+              const current = subs[0];
+              return `<div>
+                <div class="goal-preview-item">${Util.esc(g.text)}</div>
+                ${current ? `<div class="muted" style="font-size:13px;font-weight:400;margin-top:2px">📌 ${Util.esc(current.text)}</div>` : ''}
+              </div>`;
+            }).join('')}
           </div>
         `, 'goals')}
 
@@ -4459,10 +4463,6 @@ Pages.goals = (function () {
               <button class="link-btn" style="color:var(--danger)" data-del-goal="${g.id}">刪除目標</button>
             </span>
           </div>
-          <div style="margin-bottom:12px">
-            <div class="muted" style="font-size:12px;margin-bottom:4px">📅 這週行動（往這個目標，這週具體要做什麼）</div>
-            <input class="input" data-week-action="${g.id}" placeholder="例如：邀約3位新朋友喝咖啡" value="${Util.esc(g.weekAction || '')}">
-          </div>
           <div class="form-row">
             <input class="input" data-sub-input="${g.id}" placeholder="拆解出的小方向…">
             <button class="btn btn-sm" style="background:var(--blue-accent);color:#fff" data-sub-add="${g.id}">新增</button>
@@ -4482,9 +4482,6 @@ Pages.goals = (function () {
 
     wrap.querySelectorAll('[data-del-goal]').forEach(el => {
       el.onclick = () => { DataStore.deleteGoal(el.dataset.delGoal); render(); };
-    });
-    wrap.querySelectorAll('[data-week-action]').forEach(el => {
-      el.onblur = () => { DataStore.updateGoal(el.dataset.weekAction, { weekAction: el.value.trim() }); };
     });
     wrap.querySelectorAll('[data-sub-add]').forEach(el => {
       el.onclick = () => addSubgoal(el.dataset.subAdd);
