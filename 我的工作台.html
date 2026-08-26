@@ -3202,6 +3202,7 @@ Pages.calendar = (function () {
     root.innerHTML = `
       <div class="page-hd">
         <div class="page-title">📅 行事曆</div>
+        <button class="link-btn" id="toggle-bulk-cancel" style="margin-top:8px;font-size:13px">${bulkCancelOpen ? '← 收起' : '批次取消固定行程 →'}</button>
       </div>
       ${bulkCancelOpen ? `
       <div class="card" style="margin-bottom:20px">
@@ -3244,6 +3245,7 @@ Pages.calendar = (function () {
     `;
     document.getElementById('prev-m').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
     document.getElementById('next-m').onclick = () => { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); };
+    document.getElementById('toggle-bulk-cancel').onclick = () => { bulkCancelOpen = !bulkCancelOpen; bulkCancelResult = null; render(); };
     const bulkConfirmBtn = document.getElementById('bulk-cancel-confirm');
     if (bulkConfirmBtn) {
       bulkConfirmBtn.onclick = () => {
