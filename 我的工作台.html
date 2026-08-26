@@ -2013,6 +2013,20 @@ const CalShared = (function () {
         </div>`;
       }
 
+      const eightItems = DataStore.getDailyEight(selectedDate);
+      const eightCardHtml = readOnly ? '' : `
+        <div class="card" style="margin-bottom:18px" data-daypanel-part="eight">
+          <div class="card-title">🎯 這天的八件事</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${eightItems.map((it, i) => `
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" data-eight-check="${i}" ${it.done ? 'checked' : ''}>
+                <input class="input" data-eight-text="${i}" placeholder="第 ${i + 1} 件事…" value="${Util.esc(it.text)}" style="flex:1;font-size:13px;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+
       const todoCardHtml = readOnly ? '' : `
         <div class="card" id="${uid}-todo-card" data-daypanel-part="todo" style="display:flex;flex-direction:column;flex:1">
           <div class="card-title">✅ 新增待辦（${selectedDate}）</div>
@@ -2039,6 +2053,7 @@ const CalShared = (function () {
           <div class="card-title">✅ 這天的待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
+        ${eightCardHtml}
         ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
           <div class="card-title">新增行程</div>
           <input class="input" id="${uid}-ev-title" placeholder="行程內容" style="margin-bottom:8px">
@@ -2086,6 +2101,20 @@ const CalShared = (function () {
       // 待辦事項的勾選框不管是不是唯讀模式都會顯示(可以打勾完成)，所以要在下面的 readOnly 提前 return 之前先綁定
       panelEl.querySelectorAll('[data-toggle-task]').forEach(el => {
         el.onchange = () => { if (el.checked) Util.playDing(); DataStore.toggleTask(el.dataset.toggleTask); opts.onRerender(); };
+      });
+
+      // 「這天的八件事」只有非唯讀模式(行事曆頁)才會渲染出這些欄位，這裡順便綁定
+      panelEl.querySelectorAll('[data-eight-check]').forEach(el => {
+        el.onclick = () => {
+          if (el.checked) Util.playDing();
+          DataStore.setDailyEightItem(selectedDate, Number(el.dataset.eightCheck), { done: el.checked });
+          opts.onRerender();
+        };
+      });
+      panelEl.querySelectorAll('[data-eight-text]').forEach(el => {
+        el.onblur = () => {
+          DataStore.setDailyEightItem(selectedDate, Number(el.dataset.eightText), { text: el.value });
+        };
       });
 
       if (readOnly) return;
@@ -2488,12 +2517,6 @@ Pages.home = (function () {
         render();
       };
     });
-    root.querySelectorAll('[data-eight-text]').forEach(el => {
-      el.onblur = () => {
-        DataStore.setDailyEightItem(today, Number(el.dataset.eightText), { text: el.value });
-      };
-      el.onclick = (e) => e.stopPropagation();
-    });
     // 首頁的行程清單不能編輯(只能檢視)，所以這裡不再呼叫任何雙擊編輯的綁定
 
     document.getElementById('home-quote').onclick = () => {
@@ -2584,13 +2607,18 @@ Pages.home = (function () {
   function dailyEightBody() {
     const today = DataStore.todayStr();
     const items = DataStore.getDailyEight(today);
+    const filled = items.filter(it => it.text.trim());
+    if (filled.length === 0) {
+      return '<div class="empty-hint">今天還沒有填「八件事」，到「行事曆」頁點今天的日期，右邊表單就能新增</div>';
+    }
+    // 首頁只能檢視+打勾完成，不能編輯文字內容(文字要到行事曆頁的當天表單去改)
     return `<div style="display:flex;flex-direction:column;gap:6px">
-      ${items.map((it, i) => `
+      ${items.map((it, i) => it.text.trim() ? `
         <div style="display:flex;align-items:center;gap:8px">
           <input type="checkbox" data-eight-check="${i}" ${it.done ? 'checked' : ''}>
-          <input class="input" data-eight-text="${i}" placeholder="第 ${i + 1} 件事…" value="${Util.esc(it.text)}" style="flex:1;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
+          <span style="flex:1;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">${Util.esc(it.text)}</span>
         </div>
-      `).join('')}
+      ` : '').join('')}
     </div>`;
   }
 
