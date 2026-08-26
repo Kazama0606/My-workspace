@@ -2559,7 +2559,7 @@ Pages.home = (function () {
     let html = '';
     if (overdue.length) html += `<div class="muted" style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:4px">🔴 已逾期</div>${overdue.map(t => row(t, 'due-overdue')).join('')}`;
     if (dueToday.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">🟡 今天到期</div>${dueToday.map(t => row(t, 'due-today')).join('')}`;
-    if (soon.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">📅 未來一個月內</div>${soon.map(t => row(t, 'muted')).join('')}`;
+    if (soon.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">📅 之後</div>${soon.map(t => row(t, 'muted')).join('')}`;
     return html;
   }
 
