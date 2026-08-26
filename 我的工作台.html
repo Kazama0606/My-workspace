@@ -2392,7 +2392,26 @@ const WeatherService = (function () {
     });
   }
 
-  return { injectIcons };
+  // 首頁「今天天氣」那塊卡片用：把指定容器換成今天的天氣文字說明(圖示+溫度區間+降雨機率)
+  function renderTodayInto(containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    ensureFetched((data) => {
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const d = data[todayStr];
+      if (!d) { el.innerHTML = '<div class="empty-hint">目前抓不到天氣資料</div>'; return; }
+      el.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:28px">${codeToIcon(d.code)}</span>
+        <div>
+          <div style="font-size:15px;font-weight:700">${d.min}° ～ ${d.max}°</div>
+          <div class="muted" style="font-size:12px">降雨機率 ${d.pop}%</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  return { injectIcons, renderTodayInto };
 })();
 </script>
 <script>
@@ -2490,6 +2509,11 @@ Pages.home = (function () {
         <div class="quote-box" id="home-quote" style="cursor:pointer">${currentQuote}</div>
       </div>
 
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">🌤️ 今天天氣（台中）</div>
+        <div id="weather-today-body"><div class="empty-hint">讀取中…</div></div>
+      </div>
+
       <div class="grid grid-2" style="margin-bottom:16px">
         ${card('🎯 長期目標', goals.length === 0 ? '<div class="empty-hint">還沒有設定目標</div>' : `
           <div class="goal-preview-grid">
@@ -2548,6 +2572,7 @@ Pages.home = (function () {
     renderHomeCalGrid();
     dayPanel.render(document.getElementById('home-cal-panel'));
     bindHomeKeyboardNav();
+    WeatherService.renderTodayInto('weather-today-body');
 
     window.scrollTo(0, scrollY);
   }
