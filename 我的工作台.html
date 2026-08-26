@@ -740,7 +740,7 @@ const DataStore = (function () {
       recurring: [], recurringSeeded: false, dateNotes: [], holidaysSeeded: false,
       holidaysSeededV2: false, eventsDedupedV1: false, eventsWipedV1: false,
       recurringRenamedV1: false, shoppingItems: [], userName: '林玧澈', demoEventsSeeded: false,
-      habits: [], habitLogs: [], clientLogs: [],
+      habits: [], habitLogs: [], clientLogs: [], dailyEight: {},
     };
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -1035,6 +1035,19 @@ const DataStore = (function () {
       }
     },
     deleteTask: (id) => { db.tasks = db.tasks.filter(t => t.id !== id); save(); },
+
+    // ── 今日八件事(團隊要求每天要完成的8件事，依日期各存一份，可以往回看以前的紀錄) ──
+    getDailyEight: (date) => {
+      const arr = db.dailyEight[date];
+      // 固定回傳8格，不足的補空白，這樣畫面永遠有8個輸入框可以打
+      const full = Array.from({ length: 8 }, (_, i) => (arr && arr[i]) || { text: '', done: false });
+      return full;
+    },
+    setDailyEightItem: (date, index, patch) => {
+      if (!db.dailyEight[date]) db.dailyEight[date] = Array.from({ length: 8 }, () => ({ text: '', done: false }));
+      db.dailyEight[date][index] = { ...db.dailyEight[date][index], ...patch };
+      save();
+    },
 
     // ── 客戶互動紀錄(對話紀錄 + 下一步建議，附件用壓縮過的圖片base64或純文字存) ──
     getClientLogs: () => db.clientLogs.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt),
@@ -2397,6 +2410,8 @@ Pages.home = (function () {
     const root = document.getElementById('page-home');
     const today = DataStore.todayStr();
     const openTasks = DataStore.getAllTasks().filter(t => !t.done || t.completedAt === today);
+    const dailyEightItems = DataStore.getDailyEight(today);
+    const dailyEightDoneCount = dailyEightItems.filter(it => it.done && it.text.trim()).length;
     const projects = DataStore.getProjects();
     const goals = DataStore.getGoals();
 
@@ -2419,6 +2434,8 @@ Pages.home = (function () {
         </div>
         <div class="quote-box" id="home-quote" style="cursor:pointer">${currentQuote}</div>
       </div>
+
+      ${card(`🎯 今日八件事（${dailyEightDoneCount}/8 完成）`, dailyEightBody())}
 
       <div class="grid grid-2" style="margin-bottom:16px">
         ${card('🎯 長期目標', goals.length === 0 ? '<div class="empty-hint">還沒有設定目標</div>' : `
@@ -2462,6 +2479,20 @@ Pages.home = (function () {
         // 打勾後今天之內都還會保留顯示(劃線)，跟「這天的待辦事項」那張卡片共用同一套規則，兩邊會同步一致
         render();
       };
+    });
+    root.querySelectorAll('[data-eight-check]').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        if (el.checked) Util.playDing();
+        DataStore.setDailyEightItem(today, Number(el.dataset.eightCheck), { done: el.checked });
+        render();
+      };
+    });
+    root.querySelectorAll('[data-eight-text]').forEach(el => {
+      el.onblur = () => {
+        DataStore.setDailyEightItem(today, Number(el.dataset.eightText), { text: el.value });
+      };
+      el.onclick = (e) => e.stopPropagation();
     });
     // 首頁的行程清單不能編輯(只能檢視)，所以這裡不再呼叫任何雙擊編輯的綁定
 
@@ -2547,6 +2578,19 @@ Pages.home = (function () {
     return `<div class="card"${gotoPage ? ` data-goto="${gotoPage}" style="cursor:pointer"` : ''}>
       <div class="card-title">${title}</div>
       ${body}
+    </div>`;
+  }
+
+  function dailyEightBody() {
+    const today = DataStore.todayStr();
+    const items = DataStore.getDailyEight(today);
+    return `<div style="display:flex;flex-direction:column;gap:6px">
+      ${items.map((it, i) => `
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" data-eight-check="${i}" ${it.done ? 'checked' : ''}>
+          <input class="input" data-eight-text="${i}" placeholder="第 ${i + 1} 件事…" value="${Util.esc(it.text)}" style="flex:1;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
+        </div>
+      `).join('')}
     </div>`;
   }
 
