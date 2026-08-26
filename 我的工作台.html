@@ -2451,8 +2451,13 @@ Pages.home = (function () {
     root.querySelectorAll('[data-toggle-home-task]').forEach(el => {
       el.onclick = (e) => {
         e.stopPropagation();
-        DataStore.updateTask(el.dataset.toggleHomeTask, { done: true });
-        render();
+        DataStore.updateTask(el.dataset.toggleHomeTask, { done: el.checked });
+        // 打勾後不整個重新渲染、不讓項目馬上消失，改成劃掉文字，下次真的重新整理頁面時才會從清單移除
+        const titleSpan = el.closest('.list-item').querySelector('[data-task-title]');
+        if (titleSpan) {
+          titleSpan.style.textDecoration = el.checked ? 'line-through' : '';
+          titleSpan.style.opacity = el.checked ? '.5' : '';
+        }
       };
     });
     // 首頁的行程清單不能編輯(只能檢視)，所以這裡不再呼叫任何雙擊編輯的綁定
@@ -2553,13 +2558,13 @@ Pages.home = (function () {
     }
     const row = (t, cls) => `<div class="list-item" style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" data-toggle-home-task="${t.id}">
-      <span class="grow">${Util.esc(t.title)}</span>
+      <span class="grow" data-task-title>${Util.esc(t.title)}</span>
       <span class="${cls}" style="font-size:12px;white-space:nowrap">${t.dueDate}</span>
     </div>`;
     let html = '';
     if (overdue.length) html += `<div class="muted" style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:4px">🔴 已逾期</div>${overdue.map(t => row(t, 'due-overdue')).join('')}`;
     if (dueToday.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">🟡 今天到期</div>${dueToday.map(t => row(t, 'due-today')).join('')}`;
-    if (soon.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">📅 之後</div>${soon.map(t => row(t, 'muted')).join('')}`;
+    if (soon.length) html += `${soon.map(t => row(t, 'muted')).join('')}`;
     return html;
   }
 
