@@ -2352,13 +2352,14 @@ const WeatherService = (function () {
     if (cache) { onReady(cache); return; }
     if (fetching) return;
     fetching = true;
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTaipei&forecast_days=7`)
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTaipei&forecast_days=7`)
       .then(res => res.json())
       .then(data => {
         cache = {};
+        const codes = (data.daily && (data.daily.weather_code || data.daily.weathercode)) || []; // 保留舊欄位名當備援，避免服務又改名稱
         (data.daily && data.daily.time || []).forEach((d, i) => {
           cache[d] = {
-            code: data.daily.weathercode[i],
+            code: codes[i],
             max: Math.round(data.daily.temperature_2m_max[i]),
             min: Math.round(data.daily.temperature_2m_min[i]),
             pop: data.daily.precipitation_probability_max[i],
