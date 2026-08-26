@@ -2022,26 +2022,6 @@ const CalShared = (function () {
         </div>`;
       }
 
-      const eightItems = DataStore.getDailyEight(selectedDate);
-      const eightCardHtml = readOnly ? '' : `
-        <div class="card" style="margin-bottom:18px" data-daypanel-part="eight">
-          <div class="card-title">🎯 這天的${eightItems.length}件事${eightItems.length ? `（目標約8件，想寫多少都可以）` : ''}</div>
-          ${eightItems.length === 0 ? '<div class="empty-hint" style="margin-bottom:8px">還沒有寫，下面新增第一件</div>' : `
-          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
-            ${eightItems.map(it => `
-              <div style="display:flex;align-items:center;gap:8px">
-                <input type="checkbox" data-eight-check="${it.id}" ${it.done ? 'checked' : ''}>
-                <input class="input" data-eight-text="${it.id}" value="${Util.esc(it.text)}" style="flex:1;font-size:13px;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
-                <button class="link-btn" style="color:var(--danger)" data-eight-del="${it.id}">✕</button>
-              </div>
-            `).join('')}
-          </div>`}
-          <div class="form-row">
-            <input class="input" id="${uid}-eight-new" placeholder="新增一件事…">
-            <button class="btn" style="background:var(--blue-accent);color:#fff;white-space:nowrap" id="${uid}-eight-add">新增</button>
-          </div>
-        </div>`;
-
       const todoCardHtml = readOnly ? '' : `
         <div class="card" id="${uid}-todo-card" data-daypanel-part="todo" style="display:flex;flex-direction:column;flex:1">
           <div class="card-title">✅ 新增待辦（${selectedDate}）</div>
@@ -2068,7 +2048,6 @@ const CalShared = (function () {
           <div class="card-title">✅ 這天的待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
-        ${eightCardHtml}
         ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
           <div class="card-title">新增行程</div>
           <input class="input" id="${uid}-ev-title" placeholder="行程內容" style="margin-bottom:8px">
@@ -2117,38 +2096,6 @@ const CalShared = (function () {
       panelEl.querySelectorAll('[data-toggle-task]').forEach(el => {
         el.onchange = () => { if (el.checked) Util.playDing(); DataStore.toggleTask(el.dataset.toggleTask); opts.onRerender(); };
       });
-
-      // 「這天的八件事」只有非唯讀模式(行事曆頁)才會渲染出這些欄位，這裡順便綁定
-      panelEl.querySelectorAll('[data-eight-check]').forEach(el => {
-        el.onclick = () => {
-          if (el.checked) Util.playDing();
-          DataStore.updateDailyEightItem(selectedDate, el.dataset.eightCheck, { done: el.checked });
-          opts.onRerender();
-        };
-      });
-      panelEl.querySelectorAll('[data-eight-text]').forEach(el => {
-        el.onblur = () => {
-          DataStore.updateDailyEightItem(selectedDate, el.dataset.eightText, { text: el.value });
-        };
-      });
-      panelEl.querySelectorAll('[data-eight-del]').forEach(el => {
-        el.onclick = () => {
-          DataStore.deleteDailyEightItem(selectedDate, el.dataset.eightDel);
-          opts.onRerender();
-        };
-      });
-      const eightAddBtn = document.getElementById(`${uid}-eight-add`);
-      if (eightAddBtn) {
-        const eightNewInput = document.getElementById(`${uid}-eight-new`);
-        const addEightItem = () => {
-          const text = eightNewInput.value.trim();
-          if (!text) return;
-          DataStore.addDailyEightItem(selectedDate, text);
-          opts.onRerender();
-        };
-        eightAddBtn.onclick = addEightItem;
-        eightNewInput.onkeydown = (e) => { if (e.key === 'Enter') addEightItem(); };
-      }
 
       if (readOnly) return;
 
@@ -2497,8 +2444,6 @@ Pages.home = (function () {
         <div class="quote-box" id="home-quote" style="cursor:pointer">${currentQuote}</div>
       </div>
 
-      ${card(`🎯 今日八件事（${dailyEightDoneCount}/8 完成）`, dailyEightBody())}
-
       <div class="grid grid-2" style="margin-bottom:16px">
         ${card('🎯 長期目標', goals.length === 0 ? '<div class="empty-hint">還沒有設定目標</div>' : `
           <div class="goal-preview-grid">
@@ -2508,6 +2453,8 @@ Pages.home = (function () {
 
         ${card('📁 專案進度', projectProgressBody(projects), 'projects')}
       </div>
+
+      ${dailyEightItems.length > 0 ? card(`🎯 今日八件事（${dailyEightDoneCount}/${dailyEightItems.length} 完成）`, dailyEightBody()) : ''}
 
       ${card('✅ 待辦事項總覽（逾期・今天・未來一個月）', todoSummaryBody(openTasks))}
 
@@ -3302,6 +3249,7 @@ Pages.calendar = (function () {
   function renderMonthView() {
     const root = document.getElementById('page-calendar');
     const recurringList = DataStore.getRecurring();
+    const eightItems = DataStore.getDailyEight(selectedDate);
     root.innerHTML = `
       <div class="page-hd">
         <div class="page-title">📅 行事曆</div>
@@ -3345,10 +3293,52 @@ Pages.calendar = (function () {
         <div class="card" id="habits-embed" style="grid-column:1;grid-row:2"></div>
         <div id="todo-col" style="grid-column:2;grid-row:2;min-width:0;max-width:300px;display:flex;flex-direction:column"></div>
       </div>
+      <div class="card" style="margin-bottom:20px" id="eight-card">
+        <div class="card-title">🎯 ${selectedDate} 的${eightItems.length}件事${eightItems.length ? '（目標約8件，想寫多少都可以）' : ''}</div>
+        ${eightItems.length === 0 ? '<div class="empty-hint" style="margin-bottom:8px">還沒有寫，下面新增第一件</div>' : `
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+          ${eightItems.map(it => `
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" data-eight-check="${it.id}" ${it.done ? 'checked' : ''}>
+              <input class="input" data-eight-text="${it.id}" value="${Util.esc(it.text)}" style="flex:1;font-size:13px;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
+              <button class="link-btn" style="color:var(--danger)" data-eight-del="${it.id}">✕</button>
+            </div>
+          `).join('')}
+        </div>`}
+        <div class="form-row">
+          <input class="input" id="eight-new-input" placeholder="新增一件事…">
+          <button class="btn" style="background:var(--blue-accent);color:#fff;white-space:nowrap" id="eight-add-btn">新增</button>
+        </div>
+      </div>
     `;
     document.getElementById('prev-m').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
     document.getElementById('next-m').onclick = () => { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); };
     document.getElementById('toggle-bulk-cancel').onclick = () => { bulkCancelOpen = !bulkCancelOpen; bulkCancelResult = null; render(); };
+    root.querySelectorAll('[data-eight-check]').forEach(el => {
+      el.onclick = () => {
+        if (el.checked) Util.playDing();
+        DataStore.updateDailyEightItem(selectedDate, el.dataset.eightCheck, { done: el.checked });
+        render();
+      };
+    });
+    root.querySelectorAll('[data-eight-text]').forEach(el => {
+      el.onblur = () => { DataStore.updateDailyEightItem(selectedDate, el.dataset.eightText, { text: el.value }); };
+    });
+    root.querySelectorAll('[data-eight-del]').forEach(el => {
+      el.onclick = () => { DataStore.deleteDailyEightItem(selectedDate, el.dataset.eightDel); render(); };
+    });
+    const eightAddBtn = document.getElementById('eight-add-btn');
+    if (eightAddBtn) {
+      const eightNewInput = document.getElementById('eight-new-input');
+      const addEightItem = () => {
+        const text = eightNewInput.value.trim();
+        if (!text) return;
+        DataStore.addDailyEightItem(selectedDate, text);
+        render();
+      };
+      eightAddBtn.onclick = addEightItem;
+      eightNewInput.onkeydown = (e) => { if (e.key === 'Enter') addEightItem(); };
+    }
     const bulkConfirmBtn = document.getElementById('bulk-cancel-confirm');
     if (bulkConfirmBtn) {
       bulkConfirmBtn.onclick = () => {
