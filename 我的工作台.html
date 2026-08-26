@@ -1038,7 +1038,7 @@ const DataStore = (function () {
 
     // ── 今日八件事(團隊要求「每天要完成的重要事項」，「8」是目標概念、不是硬性格數，
     //    想寫3件、10件都可以，依日期各存一份，可以往回看以前的紀錄) ──
-    getDailyEight: (date) => db.dailyEight[date] || [],
+    getDailyEight: (date) => (db.dailyEight[date] || []).filter(it => it.text && it.text.trim()),
     addDailyEightItem: (date, text) => {
       if (!db.dailyEight[date]) db.dailyEight[date] = [];
       const item = { id: uid(), text: text || '', done: false };
@@ -2454,7 +2454,7 @@ Pages.home = (function () {
         ${card('📁 專案進度', projectProgressBody(projects), 'projects')}
       </div>
 
-      ${dailyEightItems.length > 0 ? card(`🎯 今日八件事（${dailyEightDoneCount}/${dailyEightItems.length} 完成）`, dailyEightBody()) : ''}
+      ${dailyEightItems.length > 0 ? card(`🎯 今日重點事項（${dailyEightDoneCount}/${dailyEightItems.length} 完成）`, dailyEightBody()) : ''}
 
       ${card('✅ 待辦事項總覽（逾期・今天・未來一個月）', todoSummaryBody(openTasks))}
 
@@ -3294,7 +3294,7 @@ Pages.calendar = (function () {
         <div id="todo-col" style="grid-column:2;grid-row:2;min-width:0;max-width:300px;display:flex;flex-direction:column"></div>
       </div>
       <div class="card" style="margin-bottom:20px" id="eight-card">
-        <div class="card-title">🎯 ${selectedDate} 的${eightItems.length}件事${eightItems.length ? '（目標約8件，想寫多少都可以）' : ''}</div>
+        <div class="card-title">🎯 ${selectedDate} 的重點事項${eightItems.length ? `（${eightItems.length} 項）` : ''}</div>
         ${eightItems.length === 0 ? '<div class="empty-hint" style="margin-bottom:8px">還沒有寫，下面新增第一件</div>' : `
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
           ${eightItems.map(it => `
