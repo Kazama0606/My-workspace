@@ -140,7 +140,9 @@ body {
 }
 .card-title { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
 /* 首頁右側欄「當天安排／近三日的行程／近期行程」三張卡片，高度統一，看起來整齊一致 */
-#home-side-col .card, #home-cal-panel > .card { min-height: 190px; box-sizing: border-box; }
+#home-side-col .card { min-height: 190px; box-sizing: border-box; }
+/* 首頁點某一天顯示的「當天行程」「待辦事項」兩張卡片：內容多就多高、內容少就少高，不強制撐到固定高度 */
+#home-cal-panel > .card { box-sizing: border-box; }
 #home-side-col .card-title, #home-cal-panel .card-title { color: #1a1a1a; font-weight: 700; font-size: 14px; }
 
 /* ── Buttons / inputs ── */
@@ -2014,7 +2016,7 @@ const CalShared = (function () {
           ${scheduleItems.length === 0 ? '<div class="empty-hint">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
         </div>
         <div class="card" style="margin-bottom:18px" data-daypanel-part="tasks">
-          <div class="card-title">✅ 待辦事項</div>
+          <div class="card-title">✅ 這天的待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
         ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
@@ -2422,7 +2424,7 @@ Pages.home = (function () {
         ${card('📁 專案進度', projectProgressBody(projects), 'projects')}
       </div>
 
-      ${card('✅ 待辦事項', todoSummaryBody(openTasks))}
+      ${card('✅ 待辦事項總覽（逾期・今天・未來一個月）', todoSummaryBody(openTasks))}
 
       <div style="margin-bottom:16px"></div>
 
