@@ -663,7 +663,7 @@ const CloudSync = (function () {
     setStatus('☁️ 同步中…', '#999');
     pushTimer = setTimeout(() => {
       const body = { fields: { payload: { stringValue: payloadStr }, updatedAt: { integerValue: String(updatedAt) } } };
-      fetch(DOC_URL, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      fetch(DOC_URL, { method: 'PATCH', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         .then(res => {
           if (!res.ok) throw new Error('HTTP ' + res.status);
           setStatus('☁️ 已同步', '#2b7fd1');
@@ -687,7 +687,7 @@ const CloudSync = (function () {
   }
 
   function pullOnce(onRemoteChange) {
-    fetch(DOC_URL)
+    fetch(`${DOC_URL}?_cb=${Date.now()}`, { cache: 'no-store' })
       .then(res => {
         if (res.status === 404) { setStatus('☁️ 尚未同步過(還沒有雲端資料)', '#999'); releaseQueuedPush(); return null; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
