@@ -306,7 +306,6 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
 .cal-cell.selected { background: var(--blue-accent-bg); }
 .cal-cell.drag-over { background: var(--mint-accent-bg); outline: 2px dashed var(--mint-accent); outline-offset: -2px; }
 .cal-daynum-row { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; flex-shrink: 0; }
-.cal-weather-icon { font-size: 12px; flex-shrink: 0; }
 /* 國定假日標籤：跟行程用的 dot/bar 完全分開的獨立元素，只是日期數字下面一行小小的紅字提示，不會影響行程或跨天活動的排版 */
 .cal-holiday-label { font-size: 10px; color: var(--danger); font-weight: 600; line-height: 1.2; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-daynum { font-weight: 700; color: var(--text); }
@@ -1781,7 +1780,6 @@ const CalShared = (function () {
     const holiday = TW_HOLIDAYS_2026[dateStr];
     return `<div class="cal-daynum-row">
       <span class="cal-daynum${weekendCls}">${dayNum}</span>
-      <span class="cal-weather-icon" data-weather-date="${dateStr}"></span>
       ${noteHtml(dateStr)}
     </div>
     ${holiday ? `<div class="cal-holiday-label">${Util.esc(holiday)}</div>` : ''}`;
@@ -2326,93 +2324,6 @@ const CalShared = (function () {
 
   return { COLOR_PALETTE, RECURRING_COLOR, MAX_DOTS, BARS_AREA_H, BAR_H, BAR_GAP, MAX_LANES, colorOf, categoryOf, recurrenceLabel, itemsForDate, isSpanningEvent, weekBars, barSegmentHtml, cellBarStripHtml, cellBarsHtml, splitCellItems, dotHtml, noteHtml, cellHeaderHtml, categoryFieldHtml, wireCategoryField, getCategoryFieldValue, createDayPanel, wireDragDrop };
 })();
-
-</script>
-<script>
-/* 天氣小圖示 — 用 Open-Meteo(完全免費、不用申請金鑰、支援跨網域直接呼叫，很適合這種純前端網站)，
-   固定抓台中的預報，只抓未來 7 天(氣象預報本來就只能看這麼遠，再遠的日期不會顯示圖示) */
-const WeatherService = (function () {
-  const LAT = 24.1477, LON = 120.6736; // 台中
-  let cache = null; // { 'YYYY-MM-DD': {code, max, min, pop} }
-  let fetching = false;
-
-  function codeToIcon(code) {
-    if (code === 0) return '☀️';
-    if (code === 1 || code === 2) return '🌤️';
-    if (code === 3) return '☁️';
-    if (code === 45 || code === 48) return '🌫️';
-    if ([51, 53, 55, 56, 57, 80, 81, 82].includes(code)) return '🌦️';
-    if ([61, 63, 65, 66, 67].includes(code)) return '🌧️';
-    if ([71, 73, 75, 77, 85, 86].includes(code)) return '🌨️';
-    if ([95, 96, 99].includes(code)) return '⛈️';
-    return '';
-  }
-
-  let pendingCallbacks = []; // fetch進行中時，後面又進來的呼叫先排隊，等資料回來後一次全部通知，不會被漏掉
-
-  function ensureFetched(onReady) {
-    if (cache) { onReady(cache); return; }
-    pendingCallbacks.push(onReady);
-    if (fetching) return; // 已經有人在抓了，等它抓完會一起通知，這裡不用重複發request
-    fetching = true;
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTaipei&forecast_days=7`)
-      .then(res => res.json())
-      .then(data => {
-        cache = {};
-        const codes = (data.daily && (data.daily.weather_code || data.daily.weathercode)) || []; // 保留舊欄位名當備援，避免服務又改名稱
-        (data.daily && data.daily.time || []).forEach((d, i) => {
-          cache[d] = {
-            code: codes[i],
-            max: Math.round(data.daily.temperature_2m_max[i]),
-            min: Math.round(data.daily.temperature_2m_min[i]),
-            pop: data.daily.precipitation_probability_max[i],
-          };
-        });
-        fetching = false;
-        const callbacks = pendingCallbacks;
-        pendingCallbacks = [];
-        callbacks.forEach(cb => cb(cache));
-      })
-      .catch(e => {
-        console.warn('抓取天氣失敗', e);
-        fetching = false;
-        pendingCallbacks = [];
-      });
-  }
-
-  // 找畫面上所有 data-weather-date 的小方塊，把對應日期的天氣圖示塞進去(只有抓得到預報的未來7天內會有圖示，其他天保持空白)
-  function injectIcons() {
-    ensureFetched((data) => {
-      document.querySelectorAll('[data-weather-date]').forEach(el => {
-        const d = data[el.dataset.weatherDate];
-        el.innerHTML = d && codeToIcon(d.code)
-          ? `<span title="${d.min}°～${d.max}°、降雨機率${d.pop}%">${codeToIcon(d.code)}</span>`
-          : '';
-      });
-    });
-  }
-
-  // 首頁「今天天氣」那塊卡片用：把指定容器換成今天的天氣文字說明(圖示+溫度區間+降雨機率)
-  function renderTodayInto(containerId) {
-    const el = document.getElementById(containerId);
-    if (!el) return;
-    ensureFetched((data) => {
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      const d = data[todayStr];
-      if (!d) { el.innerHTML = '<div class="empty-hint">目前抓不到天氣資料</div>'; return; }
-      el.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:28px">${codeToIcon(d.code)}</span>
-        <div>
-          <div style="font-size:15px;font-weight:700">${d.min}° ～ ${d.max}°</div>
-          <div class="muted" style="font-size:12px">降雨機率 ${d.pop}%</div>
-        </div>
-      </div>`;
-    });
-  }
-
-  return { injectIcons, renderTodayInto };
-})();
 </script>
 <script>
 /* 首頁 — 語錄 + 小行事曆 + 四個模組摘要卡片(2x2) */
@@ -2509,11 +2420,6 @@ Pages.home = (function () {
         <div class="quote-box" id="home-quote" style="cursor:pointer">${currentQuote}</div>
       </div>
 
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-title">🌤️ 今天天氣（台中）</div>
-        <div id="weather-today-body"><div class="empty-hint">讀取中…</div></div>
-      </div>
-
       <div class="grid grid-2" style="margin-bottom:16px">
         ${card('🎯 長期目標', goals.length === 0 ? '<div class="empty-hint">還沒有設定目標</div>' : `
           <div class="goal-preview-grid">
@@ -2572,7 +2478,6 @@ Pages.home = (function () {
     renderHomeCalGrid();
     dayPanel.render(document.getElementById('home-cal-panel'));
     bindHomeKeyboardNav();
-    WeatherService.renderTodayInto('weather-today-body');
 
     window.scrollTo(0, scrollY);
   }
@@ -3399,7 +3304,6 @@ Pages.calendar = (function () {
     });
 
     grid.innerHTML = html;
-    WeatherService.injectIcons();
     grid.querySelectorAll('[data-date]').forEach(el => {
       el.onclick = () => {
         const picked = dayPanel.pickDate && dayPanel.pickDate(el.dataset.date);
