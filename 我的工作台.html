@@ -2420,6 +2420,10 @@ Pages.home = (function () {
         ${card('📁 專案進度', projectProgressBody(projects), 'projects')}
       </div>
 
+      ${card('✅ 待辦事項', todoSummaryBody(openTasks))}
+
+      <div style="margin-bottom:16px"></div>
+
       <div class="grid" id="home-cal-row" style="grid-template-columns:1fr 300px;gap:20px;align-items:start;margin-bottom:16px">
         <div class="card" style="min-width:0">
           <div class="cal-hd">
@@ -2439,6 +2443,13 @@ Pages.home = (function () {
 
     root.querySelectorAll('[data-goto]').forEach(el => {
       el.onclick = () => window.App.goto(el.dataset.goto);
+    });
+    root.querySelectorAll('[data-toggle-home-task]').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        DataStore.updateTask(el.dataset.toggleHomeTask, { done: true });
+        render();
+      };
     });
     // 首頁的行程清單不能編輯(只能檢視)，所以這裡不再呼叫任何雙擊編輯的綁定
 
@@ -2525,6 +2536,27 @@ Pages.home = (function () {
       <div class="card-title">${title}</div>
       ${body}
     </div>`;
+  }
+
+  function todoSummaryBody(openTasks) {
+    const today = DataStore.todayStr();
+    const overdue = openTasks.filter(t => t.dueDate && t.dueDate < today).sort((a, b) => a.dueDate < b.dueDate ? -1 : 1);
+    const dueToday = openTasks.filter(t => t.dueDate === today);
+    const in7 = dateStrPlus(7);
+    const soon = openTasks.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= in7).sort((a, b) => a.dueDate < b.dueDate ? -1 : 1);
+    if (overdue.length === 0 && dueToday.length === 0 && soon.length === 0) {
+      return '<div class="empty-hint">目前沒有已逾期或即將到期的待辦事項</div>';
+    }
+    const row = (t, cls) => `<div class="list-item" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" data-toggle-home-task="${t.id}">
+      <span class="grow">${Util.esc(t.title)}</span>
+      <span class="${cls}" style="font-size:12px;white-space:nowrap">${t.dueDate}</span>
+    </div>`;
+    let html = '';
+    if (overdue.length) html += `<div class="muted" style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:4px">🔴 已逾期</div>${overdue.map(t => row(t, 'due-overdue')).join('')}`;
+    if (dueToday.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">🟡 今天到期</div>${dueToday.map(t => row(t, 'due-today')).join('')}`;
+    if (soon.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">📅 未來 7 天內</div>${soon.map(t => row(t, 'muted')).join('')}`;
+    return html;
   }
 
   function projectProgressBody(projects) {
