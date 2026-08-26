@@ -1036,16 +1036,25 @@ const DataStore = (function () {
     },
     deleteTask: (id) => { db.tasks = db.tasks.filter(t => t.id !== id); save(); },
 
-    // ── 今日八件事(團隊要求每天要完成的8件事，依日期各存一份，可以往回看以前的紀錄) ──
-    getDailyEight: (date) => {
-      const arr = db.dailyEight[date];
-      // 固定回傳8格，不足的補空白，這樣畫面永遠有8個輸入框可以打
-      const full = Array.from({ length: 8 }, (_, i) => (arr && arr[i]) || { text: '', done: false });
-      return full;
+    // ── 今日八件事(團隊要求「每天要完成的重要事項」，「8」是目標概念、不是硬性格數，
+    //    想寫3件、10件都可以，依日期各存一份，可以往回看以前的紀錄) ──
+    getDailyEight: (date) => db.dailyEight[date] || [],
+    addDailyEightItem: (date, text) => {
+      if (!db.dailyEight[date]) db.dailyEight[date] = [];
+      const item = { id: uid(), text: text || '', done: false };
+      db.dailyEight[date].push(item);
+      save();
+      return item;
     },
-    setDailyEightItem: (date, index, patch) => {
-      if (!db.dailyEight[date]) db.dailyEight[date] = Array.from({ length: 8 }, () => ({ text: '', done: false }));
-      db.dailyEight[date][index] = { ...db.dailyEight[date][index], ...patch };
+    updateDailyEightItem: (date, id, patch) => {
+      const arr = db.dailyEight[date];
+      if (!arr) return;
+      const it = arr.find(x => x.id === id);
+      if (it) { Object.assign(it, patch); save(); }
+    },
+    deleteDailyEightItem: (date, id) => {
+      if (!db.dailyEight[date]) return;
+      db.dailyEight[date] = db.dailyEight[date].filter(x => x.id !== id);
       save();
     },
 
@@ -2016,14 +2025,20 @@ const CalShared = (function () {
       const eightItems = DataStore.getDailyEight(selectedDate);
       const eightCardHtml = readOnly ? '' : `
         <div class="card" style="margin-bottom:18px" data-daypanel-part="eight">
-          <div class="card-title">🎯 這天的八件事</div>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            ${eightItems.map((it, i) => `
+          <div class="card-title">🎯 這天的${eightItems.length}件事${eightItems.length ? `（目標約8件，想寫多少都可以）` : ''}</div>
+          ${eightItems.length === 0 ? '<div class="empty-hint" style="margin-bottom:8px">還沒有寫，下面新增第一件</div>' : `
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+            ${eightItems.map(it => `
               <div style="display:flex;align-items:center;gap:8px">
-                <input type="checkbox" data-eight-check="${i}" ${it.done ? 'checked' : ''}>
-                <input class="input" data-eight-text="${i}" placeholder="第 ${i + 1} 件事…" value="${Util.esc(it.text)}" style="flex:1;font-size:13px;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
+                <input type="checkbox" data-eight-check="${it.id}" ${it.done ? 'checked' : ''}>
+                <input class="input" data-eight-text="${it.id}" value="${Util.esc(it.text)}" style="flex:1;font-size:13px;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
+                <button class="link-btn" style="color:var(--danger)" data-eight-del="${it.id}">✕</button>
               </div>
             `).join('')}
+          </div>`}
+          <div class="form-row">
+            <input class="input" id="${uid}-eight-new" placeholder="新增一件事…">
+            <button class="btn" style="background:var(--blue-accent);color:#fff;white-space:nowrap" id="${uid}-eight-add">新增</button>
           </div>
         </div>`;
 
@@ -2107,15 +2122,33 @@ const CalShared = (function () {
       panelEl.querySelectorAll('[data-eight-check]').forEach(el => {
         el.onclick = () => {
           if (el.checked) Util.playDing();
-          DataStore.setDailyEightItem(selectedDate, Number(el.dataset.eightCheck), { done: el.checked });
+          DataStore.updateDailyEightItem(selectedDate, el.dataset.eightCheck, { done: el.checked });
           opts.onRerender();
         };
       });
       panelEl.querySelectorAll('[data-eight-text]').forEach(el => {
         el.onblur = () => {
-          DataStore.setDailyEightItem(selectedDate, Number(el.dataset.eightText), { text: el.value });
+          DataStore.updateDailyEightItem(selectedDate, el.dataset.eightText, { text: el.value });
         };
       });
+      panelEl.querySelectorAll('[data-eight-del]').forEach(el => {
+        el.onclick = () => {
+          DataStore.deleteDailyEightItem(selectedDate, el.dataset.eightDel);
+          opts.onRerender();
+        };
+      });
+      const eightAddBtn = document.getElementById(`${uid}-eight-add`);
+      if (eightAddBtn) {
+        const eightNewInput = document.getElementById(`${uid}-eight-new`);
+        const addEightItem = () => {
+          const text = eightNewInput.value.trim();
+          if (!text) return;
+          DataStore.addDailyEightItem(selectedDate, text);
+          opts.onRerender();
+        };
+        eightAddBtn.onclick = addEightItem;
+        eightNewInput.onkeydown = (e) => { if (e.key === 'Enter') addEightItem(); };
+      }
 
       if (readOnly) return;
 
@@ -2513,7 +2546,7 @@ Pages.home = (function () {
       el.onclick = (e) => {
         e.stopPropagation();
         if (el.checked) Util.playDing();
-        DataStore.setDailyEightItem(today, Number(el.dataset.eightCheck), { done: el.checked });
+        DataStore.updateDailyEightItem(today, el.dataset.eightCheck, { done: el.checked });
         render();
       };
     });
@@ -2607,18 +2640,17 @@ Pages.home = (function () {
   function dailyEightBody() {
     const today = DataStore.todayStr();
     const items = DataStore.getDailyEight(today);
-    const filled = items.filter(it => it.text.trim());
-    if (filled.length === 0) {
+    if (items.length === 0) {
       return '<div class="empty-hint">今天還沒有填「八件事」，到「行事曆」頁點今天的日期，右邊表單就能新增</div>';
     }
     // 首頁只能檢視+打勾完成，不能編輯文字內容(文字要到行事曆頁的當天表單去改)
     return `<div style="display:flex;flex-direction:column;gap:6px">
-      ${items.map((it, i) => it.text.trim() ? `
+      ${items.map(it => `
         <div style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" data-eight-check="${i}" ${it.done ? 'checked' : ''}>
+          <input type="checkbox" data-eight-check="${it.id}" ${it.done ? 'checked' : ''}>
           <span style="flex:1;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">${Util.esc(it.text)}</span>
         </div>
-      ` : '').join('')}
+      `).join('')}
     </div>`;
   }
 
