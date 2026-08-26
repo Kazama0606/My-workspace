@@ -2012,7 +2012,9 @@ const CalShared = (function () {
         <div class="card" style="margin-bottom:18px" data-daypanel-part="info">
           <div class="card-title">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
           ${scheduleItems.length === 0 ? '<div class="empty-hint">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
-          <div class="card-title" style="margin-top:16px">✅ 待辦事項</div>
+        </div>
+        <div class="card" style="margin-bottom:18px" data-daypanel-part="tasks">
+          <div class="card-title">✅ 待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
         ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
@@ -2542,8 +2544,8 @@ Pages.home = (function () {
     const today = DataStore.todayStr();
     const overdue = openTasks.filter(t => t.dueDate && t.dueDate < today).sort((a, b) => a.dueDate < b.dueDate ? -1 : 1);
     const dueToday = openTasks.filter(t => t.dueDate === today);
-    const in7 = dateStrPlus(7);
-    const soon = openTasks.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= in7).sort((a, b) => a.dueDate < b.dueDate ? -1 : 1);
+    const in30 = dateStrPlus(30);
+    const soon = openTasks.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= in30).sort((a, b) => a.dueDate < b.dueDate ? -1 : 1);
     if (overdue.length === 0 && dueToday.length === 0 && soon.length === 0) {
       return '<div class="empty-hint">目前沒有已逾期或即將到期的待辦事項</div>';
     }
@@ -2555,7 +2557,7 @@ Pages.home = (function () {
     let html = '';
     if (overdue.length) html += `<div class="muted" style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:4px">🔴 已逾期</div>${overdue.map(t => row(t, 'due-overdue')).join('')}`;
     if (dueToday.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">🟡 今天到期</div>${dueToday.map(t => row(t, 'due-today')).join('')}`;
-    if (soon.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">📅 未來 7 天內</div>${soon.map(t => row(t, 'muted')).join('')}`;
+    if (soon.length) html += `<div class="muted" style="font-size:12px;font-weight:700;margin:8px 0 4px">📅 未來一個月內</div>${soon.map(t => row(t, 'muted')).join('')}`;
     return html;
   }
 
