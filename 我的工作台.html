@@ -740,7 +740,7 @@ const DataStore = (function () {
       recurring: [], recurringSeeded: false, dateNotes: [], holidaysSeeded: false,
       holidaysSeededV2: false, eventsDedupedV1: false, eventsWipedV1: false,
       recurringRenamedV1: false, shoppingItems: [], userName: '林玧澈', demoEventsSeeded: false,
-      habits: [], habitLogs: [], clientLogs: [], dailyEight: {},
+      habits: [], habitLogs: [], clientLogs: [],
     };
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -1035,28 +1035,6 @@ const DataStore = (function () {
       }
     },
     deleteTask: (id) => { db.tasks = db.tasks.filter(t => t.id !== id); save(); },
-
-    // ── 今日八件事(團隊要求「每天要完成的重要事項」，「8」是目標概念、不是硬性格數，
-    //    想寫3件、10件都可以，依日期各存一份，可以往回看以前的紀錄) ──
-    getDailyEight: (date) => (db.dailyEight[date] || []).filter(it => it.text && it.text.trim()),
-    addDailyEightItem: (date, text) => {
-      if (!db.dailyEight[date]) db.dailyEight[date] = [];
-      const item = { id: uid(), text: text || '', done: false };
-      db.dailyEight[date].push(item);
-      save();
-      return item;
-    },
-    updateDailyEightItem: (date, id, patch) => {
-      const arr = db.dailyEight[date];
-      if (!arr) return;
-      const it = arr.find(x => x.id === id);
-      if (it) { Object.assign(it, patch); save(); }
-    },
-    deleteDailyEightItem: (date, id) => {
-      if (!db.dailyEight[date]) return;
-      db.dailyEight[date] = db.dailyEight[date].filter(x => x.id !== id);
-      save();
-    },
 
     // ── 客戶互動紀錄(對話紀錄 + 下一步建議，附件用壓縮過的圖片base64或純文字存) ──
     getClientLogs: () => db.clientLogs.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt),
@@ -2419,8 +2397,6 @@ Pages.home = (function () {
     const root = document.getElementById('page-home');
     const today = DataStore.todayStr();
     const openTasks = DataStore.getAllTasks().filter(t => !t.done || t.completedAt === today);
-    const dailyEightItems = DataStore.getDailyEight(today);
-    const dailyEightDoneCount = dailyEightItems.filter(it => it.done && it.text.trim()).length;
     const projects = DataStore.getProjects();
     const goals = DataStore.getGoals();
 
@@ -2454,8 +2430,6 @@ Pages.home = (function () {
         ${card('📁 專案進度', projectProgressBody(projects), 'projects')}
       </div>
 
-      ${dailyEightItems.length > 0 ? card(`🎯 今日重點事項（${dailyEightDoneCount}/${dailyEightItems.length} 完成）`, dailyEightBody()) : ''}
-
       ${card('✅ 待辦事項總覽（逾期・今天・未來一個月）', todoSummaryBody(openTasks))}
 
       <div style="margin-bottom:16px"></div>
@@ -2486,14 +2460,6 @@ Pages.home = (function () {
         if (el.checked) Util.playDing();
         DataStore.toggleTask(el.dataset.toggleHomeTask);
         // 打勾後今天之內都還會保留顯示(劃線)，跟「這天的待辦事項」那張卡片共用同一套規則，兩邊會同步一致
-        render();
-      };
-    });
-    root.querySelectorAll('[data-eight-check]').forEach(el => {
-      el.onclick = (e) => {
-        e.stopPropagation();
-        if (el.checked) Util.playDing();
-        DataStore.updateDailyEightItem(today, el.dataset.eightCheck, { done: el.checked });
         render();
       };
     });
@@ -2581,23 +2547,6 @@ Pages.home = (function () {
     return `<div class="card"${gotoPage ? ` data-goto="${gotoPage}" style="cursor:pointer"` : ''}>
       <div class="card-title">${title}</div>
       ${body}
-    </div>`;
-  }
-
-  function dailyEightBody() {
-    const today = DataStore.todayStr();
-    const items = DataStore.getDailyEight(today);
-    if (items.length === 0) {
-      return '<div class="empty-hint">今天還沒有填「八件事」，到「行事曆」頁點今天的日期，右邊表單就能新增</div>';
-    }
-    // 首頁只能檢視+打勾完成，不能編輯文字內容(文字要到行事曆頁的當天表單去改)
-    return `<div style="display:flex;flex-direction:column;gap:6px">
-      ${items.map(it => `
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" data-eight-check="${it.id}" ${it.done ? 'checked' : ''}>
-          <span style="flex:1;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">${Util.esc(it.text)}</span>
-        </div>
-      `).join('')}
     </div>`;
   }
 
@@ -3249,7 +3198,6 @@ Pages.calendar = (function () {
   function renderMonthView() {
     const root = document.getElementById('page-calendar');
     const recurringList = DataStore.getRecurring();
-    const eightItems = DataStore.getDailyEight(selectedDate);
     root.innerHTML = `
       <div class="page-hd">
         <div class="page-title">📅 行事曆</div>
@@ -3293,52 +3241,10 @@ Pages.calendar = (function () {
         <div class="card" id="habits-embed" style="grid-column:1;grid-row:2"></div>
         <div id="todo-col" style="grid-column:2;grid-row:2;min-width:0;max-width:300px;display:flex;flex-direction:column"></div>
       </div>
-      <div class="card" style="margin-bottom:20px" id="eight-card">
-        <div class="card-title">🎯 ${selectedDate} 的重點事項${eightItems.length ? `（${eightItems.length} 項）` : ''}</div>
-        ${eightItems.length === 0 ? '<div class="empty-hint" style="margin-bottom:8px">還沒有寫，下面新增第一件</div>' : `
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
-          ${eightItems.map(it => `
-            <div style="display:flex;align-items:center;gap:8px">
-              <input type="checkbox" data-eight-check="${it.id}" ${it.done ? 'checked' : ''}>
-              <input class="input" data-eight-text="${it.id}" value="${Util.esc(it.text)}" style="flex:1;font-size:13px;${it.done ? 'text-decoration:line-through;opacity:.5' : ''}">
-              <button class="link-btn" style="color:var(--danger)" data-eight-del="${it.id}">✕</button>
-            </div>
-          `).join('')}
-        </div>`}
-        <div class="form-row">
-          <input class="input" id="eight-new-input" placeholder="新增一件事…">
-          <button class="btn" style="background:var(--blue-accent);color:#fff;white-space:nowrap" id="eight-add-btn">新增</button>
-        </div>
-      </div>
     `;
     document.getElementById('prev-m').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
     document.getElementById('next-m').onclick = () => { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); };
     document.getElementById('toggle-bulk-cancel').onclick = () => { bulkCancelOpen = !bulkCancelOpen; bulkCancelResult = null; render(); };
-    root.querySelectorAll('[data-eight-check]').forEach(el => {
-      el.onclick = () => {
-        if (el.checked) Util.playDing();
-        DataStore.updateDailyEightItem(selectedDate, el.dataset.eightCheck, { done: el.checked });
-        render();
-      };
-    });
-    root.querySelectorAll('[data-eight-text]').forEach(el => {
-      el.onblur = () => { DataStore.updateDailyEightItem(selectedDate, el.dataset.eightText, { text: el.value }); };
-    });
-    root.querySelectorAll('[data-eight-del]').forEach(el => {
-      el.onclick = () => { DataStore.deleteDailyEightItem(selectedDate, el.dataset.eightDel); render(); };
-    });
-    const eightAddBtn = document.getElementById('eight-add-btn');
-    if (eightAddBtn) {
-      const eightNewInput = document.getElementById('eight-new-input');
-      const addEightItem = () => {
-        const text = eightNewInput.value.trim();
-        if (!text) return;
-        DataStore.addDailyEightItem(selectedDate, text);
-        render();
-      };
-      eightAddBtn.onclick = addEightItem;
-      eightNewInput.onkeydown = (e) => { if (e.key === 'Enter') addEightItem(); };
-    }
     const bulkConfirmBtn = document.getElementById('bulk-cancel-confirm');
     if (bulkConfirmBtn) {
       bulkConfirmBtn.onclick = () => {
