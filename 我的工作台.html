@@ -687,7 +687,7 @@ const CloudSync = (function () {
   }
 
   function pullOnce(onRemoteChange) {
-    fetch(`${DOC_URL}?_cb=${Date.now()}`, { cache: 'no-store' })
+    fetch(DOC_URL, { cache: 'no-store' })
       .then(res => {
         if (res.status === 404) { setStatus('☁️ 尚未同步過(還沒有雲端資料)', '#999'); releaseQueuedPush(); return null; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
