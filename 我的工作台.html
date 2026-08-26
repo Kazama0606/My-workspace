@@ -2382,13 +2382,17 @@ const WeatherService = (function () {
 
   // 找畫面上所有 data-weather-date 的小方塊，把對應日期的天氣圖示塞進去(只有抓得到預報的未來7天內會有圖示，其他天保持空白)
   function injectIcons() {
+    console.log('[天氣] injectIcons 被呼叫');
     ensureFetched((data) => {
-      document.querySelectorAll('[data-weather-date]').forEach(el => {
+      const targets = document.querySelectorAll('[data-weather-date]');
+      console.log('[天氣] 資料回來了，準備塞進', targets.length, '個方塊，資料筆數：', Object.keys(data).length);
+      targets.forEach(el => {
         const d = data[el.dataset.weatherDate];
         el.innerHTML = d && codeToIcon(d.code)
           ? `<span title="${d.min}°～${d.max}°、降雨機率${d.pop}%">${codeToIcon(d.code)}</span>`
           : '';
       });
+      console.log('[天氣] 塞完了');
     });
   }
 
