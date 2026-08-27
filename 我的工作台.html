@@ -2639,12 +2639,16 @@ Pages.home = (function () {
       const done = tasks.filter(t => t.done).length;
       return `<div class="list-item"><span class="grow project-progress-name">${Util.esc(p.name)}</span><span class="muted" style="font-size:12px">${done}/${tasks.length}</span></div>`;
     };
+    let inner;
     if (projects.length <= 3) {
-      return projects.map(progressRow).join('');
+      inner = projects.map(progressRow).join('');
+    } else {
+      const shown = projects.slice(0, 2).map(progressRow).join('');
+      const restCount = projects.length - 2;
+      inner = shown + `<div class="list-item"><span class="grow muted" style="font-size:13px">以及其他 ${restCount} 個專案進行中</span></div>`;
     }
-    const shown = projects.slice(0, 2).map(progressRow).join('');
-    const restCount = projects.length - 2;
-    return shown + `<div class="list-item"><span class="grow muted" style="font-size:13px">以及其他 ${restCount} 個專案進行中</span></div>`;
+    // .list-item 本身有上下內距，跟「長期目標」那邊沒有內距的清單對不齊，這裡往上抵消掉，讓兩張卡片內容跟標題的距離一致
+    return `<div style="margin-top:-10px">${inner}</div>`;
   }
 
   function renderHomeCalGrid() {
