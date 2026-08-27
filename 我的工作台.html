@@ -642,6 +642,7 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
    改成單純的 REST 請求：推送用 PATCH、讀取用輪詢(每隔一段時間 GET 一次)，不再依賴 SDK。 */
 const CloudSync = (function () {
   const PROJECT_ID = 'kazama-1cfdb';
+  const API_KEY = 'AIzaSyAomvZayX57M4t1Y2i2C9JKJt4_J3GEmqM'; // Firebase Web API Key，本來就設計成可以公開寫在網頁裡，安全性靠 Firestore 規則+這裡的匿名驗證保護
   const DOC_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/workspace_sync/main`;
   const POLL_INTERVAL_MS = 20000; // 每 20 秒檢查一次雲端有沒有更新(取代即時監聽)
   let pushTimer = null;
@@ -652,6 +653,47 @@ const CloudSync = (function () {
   // 所以剛打開網頁的這段時間先把推送「排隊」，等第一次跟雲端的比對確定完成後才真的送出。
   let allowPush = false;
   let queuedPush = null;
+
+  // 匿名驗證：因為 repo 是公開的，任何人都看得到程式碼裡寫的 Firestore 位置，之前的規則是「任何人都能讀寫」，
+  // 等於毫無防護。改成要求 Firestore 規則檢查 request.auth != null，這裡負責在背景自動幫瀏覽器
+  // 換一個匿名身分(不需要使用者輸入任何帳密)，讓每個請求都帶著這個身分的驗證token，才能通過安全規則。
+  let idToken = null;
+  let refreshToken = null;
+  let tokenExpiry = 0;
+  let authPromise = null;
+
+  function signInAnonymously() {
+    return fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ returnSecureToken: true }),
+    }).then(res => { if (!res.ok) throw new Error('匿名登入失敗 HTTP ' + res.status); return res.json(); })
+      .then(data => {
+        idToken = data.idToken; refreshToken = data.refreshToken;
+        tokenExpiry = Date.now() + Number(data.expiresIn) * 1000 - 60000; // 提早1分鐘視為過期，避免臨界點卡住
+        return idToken;
+      });
+  }
+
+  function refreshIdToken() {
+    return fetch(`https://securetoken.googleapis.com/v1/token?key=${API_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=refresh_token&refresh_token=${refreshToken}`,
+    }).then(res => { if (!res.ok) throw new Error('更新驗證token失敗 HTTP ' + res.status); return res.json(); })
+      .then(data => {
+        idToken = data.id_token; refreshToken = data.refresh_token;
+        tokenExpiry = Date.now() + Number(data.expires_in) * 1000 - 60000;
+        return idToken;
+      });
+  }
+
+  // 確保手上有一個沒過期的驗證token，快過期就自動換新，第一次就先匿名登入；
+  // 短時間內重複呼叫只會共用同一個進行中的請求，不會同時發送好幾次登入/換token的請求
+  function ensureAuth() {
+    if (idToken && Date.now() < tokenExpiry) return Promise.resolve(idToken);
+    if (authPromise) return authPromise;
+    const task = refreshToken ? refreshIdToken() : signInAnonymously();
+    authPromise = task.then(token => { authPromise = null; return token; }).catch(e => { authPromise = null; throw e; });
+    return authPromise;
+  }
 
   function setStatus(text, color) {
     const el = document.getElementById('cloud-sync-status');
@@ -664,8 +706,15 @@ const CloudSync = (function () {
     clearTimeout(pushTimer);
     setStatus('☁️ 同步中…', '#999');
     pushTimer = setTimeout(() => {
-      const body = { fields: { payload: { stringValue: payloadStr }, updatedAt: { integerValue: String(updatedAt) } } };
-      fetch(DOC_URL, { method: 'PATCH', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      ensureAuth()
+        .then(token => {
+          const body = { fields: { payload: { stringValue: payloadStr }, updatedAt: { integerValue: String(updatedAt) } } };
+          return fetch(DOC_URL, {
+            method: 'PATCH', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(body),
+          });
+        })
         .then(res => {
           if (!res.ok) throw new Error('HTTP ' + res.status);
           setStatus('☁️ 已同步', '#2b7fd1');
@@ -689,7 +738,8 @@ const CloudSync = (function () {
   }
 
   function pullOnce(onRemoteChange) {
-    fetch(DOC_URL, { cache: 'no-store' })
+    ensureAuth()
+      .then(token => fetch(DOC_URL, { cache: 'no-store', headers: { 'Authorization': 'Bearer ' + token } }))
       .then(res => {
         if (res.status === 404) { setStatus('☁️ 尚未同步過(還沒有雲端資料)', '#999'); releaseQueuedPush(); return null; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
