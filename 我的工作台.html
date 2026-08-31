@@ -2130,11 +2130,11 @@ const CalShared = (function () {
 
       panelEl.innerHTML = `
         <div class="card" style="margin-bottom:18px" data-daypanel-part="info">
-          <div class="card-title">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
+          <div class="card-title" style="margin-bottom:4px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
           ${scheduleItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
         </div>
         <div class="card" style="margin-bottom:18px" data-daypanel-part="tasks">
-          <div class="card-title">✅ 這天的待辦事項</div>
+          <div class="card-title" style="margin-bottom:4px">✅ 這天的待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
         ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
@@ -2181,13 +2181,15 @@ const CalShared = (function () {
       `;
       if (todoEl) { todoEl.innerHTML = todoCardHtml; }
 
-      // 「當天行程」卡片高度規則：完全沒有行程，或剛好只有一筆時，固定卡片高度為 100px(內容多出來的部分用內部捲動軸看，不會被切掉看不到)；
-      // 兩筆以上就取消固定高度，讓卡片自然撐高，不會互相擠壓看不到內容
+      // 「當天行程」卡片高度規則：這裡改成用「一筆行程實際需要的高度」當基準(目前約 121px)，
+      // 完全沒有行程或剛好一筆時都固定套用這個高度，兩種情況看起來高度一致、也不會有任何內容被切到或需要捲動；
+      // 兩筆以上就取消固定高度，讓卡片自然撐高
+      const DAYPANEL_FIXED_H = 123;
       const infoCardEl = panelEl.querySelector('[data-daypanel-part="info"]');
       if (infoCardEl) {
         if (scheduleItems.length <= 1) {
-          infoCardEl.style.height = '100px';
-          infoCardEl.style.overflowY = 'auto';
+          infoCardEl.style.height = DAYPANEL_FIXED_H + 'px';
+          infoCardEl.style.overflowY = 'hidden';
           infoCardEl.classList.add('daypanel-fixed100');
         } else {
           infoCardEl.style.height = '';
@@ -2195,12 +2197,12 @@ const CalShared = (function () {
           infoCardEl.classList.remove('daypanel-fixed100');
         }
       }
-      // 「這天的待辦事項」卡片套用同樣的高度規則：0～1 筆固定 100px，2 筆以上自動撐高
+      // 「這天的待辦事項」卡片套用同樣的高度規則：0～1 筆固定、不能滾動，2 筆以上自動撐高
       const tasksCardEl = panelEl.querySelector('[data-daypanel-part="tasks"]');
       if (tasksCardEl) {
         if (taskItems.length <= 1) {
-          tasksCardEl.style.height = '100px';
-          tasksCardEl.style.overflowY = 'auto';
+          tasksCardEl.style.height = DAYPANEL_FIXED_H + 'px';
+          tasksCardEl.style.overflowY = 'hidden';
           tasksCardEl.classList.add('daypanel-fixed100');
         } else {
           tasksCardEl.style.height = '';
@@ -3709,17 +3711,18 @@ Pages.calendar = (function () {
         const showTitle = !isMultiDay || trueStartDay || showTitleBottom; // 中間的天(既不是開始也不是結束)不顯示標題
         const timeStr = isMultiDay ? (trueStartDay ? `${it.startTime} 開始` : (trueEndDay ? `→ ${it.endTime} 結束` : '')) : (it.kind === 'event' ? Util.eventSpanLabel(it) : Util.timeRange(it.startTime, it.endTime));
         const isLong = isEditableKind && isLongItem(it, ds);
-        // 長時間活動(例如台東旅遊)在週檢視不能直接整筆編輯，只能整筆在月曆頁編輯；
-        // 這裡改成點色塊裡的哪個小時，就當作點那個小時要新增/編輯，不加 data-edit-event
-        // 固定行程(例如皮膚科回診)一樣可以在這裡雙擊快速改時間/類型/標題，只是刪除鍵改成「取消這天」，不會整組刪掉
-        const clickAttr = (isEditableKind && !isLong) ? `data-select-event="${it.id}" data-edit-event="${it.id}" data-edit-kind="${it.kind}" data-col-date="${ds}"` : '';
+        // 長時間活動(例如台東旅遊、阿姨打掃)現在也能編輯，只是「雙擊整筆編輯」的觸發點限定在標題那一列，
+        // 色塊其餘空白處維持原本「雙擊該小時＝在那個時段疊加新行程」的功能，兩者才不會互相打架
+        const clickAttr = isEditableKind ? `data-select-event="${it.id}" data-edit-event="${it.id}" data-edit-kind="${it.kind}" data-col-date="${ds}"` : '';
+        const outerClickAttr = isLong ? '' : clickAttr;
+        const headerClickAttr = isLong ? clickAttr : '';
         const isPillSelected = isEditableKind && selectedPillId === it.id;
         const selClass = isPillSelected ? ' pill-selected' : '';
         const longClass = isLong ? ' day-long-pill' : '';
         const startHourAttr = isLong ? ` data-pill-start-hour="${Math.floor(start / 60)}" data-pill-date="${ds}"` : '';
         const bottomJustify = showTitleBottom ? ';justify-content:flex-end' : '';
-        gridHtml += `<div class="day-grid-block day-timeline-pill${selClass}${longClass}" ${clickAttr}${startHourAttr} style="grid-column:${col};grid-row:${r1} / ${r2};background:${cat.bg};color:${cat.fg};${laneStyle}${isEditableKind ? 'cursor:pointer' : ''}${bottomJustify}">
-          <div class="day-timeline-pill-row">
+        gridHtml += `<div class="day-grid-block day-timeline-pill${selClass}${longClass}" ${outerClickAttr}${startHourAttr} style="grid-column:${col};grid-row:${r1} / ${r2};background:${cat.bg};color:${cat.fg};${laneStyle}${isEditableKind ? 'cursor:pointer' : ''}${bottomJustify}">
+          <div class="day-timeline-pill-row" ${headerClickAttr}${isLong && headerClickAttr ? ' style="cursor:pointer"' : ''}>
             ${showTitle ? `<span class="day-timeline-pill-title">${prefix}${Util.esc(it.title)}</span>` : ''}
             ${timeStr ? `<span class="day-timeline-pill-time">${Util.esc(timeStr)}</span>` : ''}
           </div>
@@ -3778,7 +3781,7 @@ Pages.calendar = (function () {
       el.onclick = () => { selectedPillId = el.dataset.selectEvent; selectedHour = null; selectedHourDate = null; renderWeekView(); };
     });
     root.querySelectorAll('[data-edit-event]').forEach(el => {
-      el.ondblclick = () => { dayEditId = el.dataset.editEvent; dayEditDate = el.dataset.colDate; dayEditKind = el.dataset.editKind || 'event'; dayAddHour = null; dayAddDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; renderWeekView(); };
+      el.ondblclick = (e) => { e.stopPropagation(); dayEditId = el.dataset.editEvent; dayEditDate = el.dataset.colDate; dayEditKind = el.dataset.editKind || 'event'; dayAddHour = null; dayAddDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; renderWeekView(); };
     });
     renderFloatingForm(root);
     wirePillHourHover(root);
