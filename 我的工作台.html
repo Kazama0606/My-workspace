@@ -3345,7 +3345,7 @@ Pages.calendar = (function () {
         `}
       </div>` : ''}
       <div id="cal-2x2" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px">
-        <div id="cal-left-col" style="flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:20px">
+        <div id="cal-left-col" style="flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:16px">
           <div class="card" id="cal-card" style="display:flex;flex-direction:column;min-width:0">
             <div class="cal-hd">
               <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
@@ -3383,6 +3383,27 @@ Pages.calendar = (function () {
     dayPanel.render(document.getElementById('day-panel'), document.getElementById('todo-col'));
     Pages.habits.render('habits-embed');
     bindKeyboardNav();
+    alignEventFormWithCalendar();
+  }
+
+  // 當這天完全沒有行程、也沒有待辦事項時，「新增行程」卡片內容會很短，
+  // 這種情況下特別把它的底部拉齊到跟月曆底部同一水平，看起來比較工整；
+  // 平常事項一多的日子則不勉強對齊，維持各自高度(避免又把月曆撐出空白)
+  function alignEventFormWithCalendar() {
+    requestAnimationFrame(() => {
+      const eventForm = document.querySelector('[data-daypanel-part="eventform"]');
+      const calCard = document.getElementById('cal-card');
+      if (!eventForm || !calCard) return;
+      eventForm.style.minHeight = '';
+      if (window.innerWidth <= 860) return; // 手機版是上下疊的，不需要對齊
+      const items = CalShared.itemsForDate(selectedDate);
+      const isEmpty = items.filter(it => it.kind !== 'task').length === 0 && items.filter(it => it.kind === 'task').length === 0;
+      if (!isEmpty) return;
+      const calBottom = calCard.getBoundingClientRect().bottom;
+      const formTop = eventForm.getBoundingClientRect().top;
+      const needed = calBottom - formTop;
+      if (needed > eventForm.offsetHeight) eventForm.style.minHeight = needed + 'px';
+    });
   }
 
 
