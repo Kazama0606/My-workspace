@@ -2027,7 +2027,7 @@ const CalShared = (function () {
             `;
           }
           const cat = categoryOf(it);
-          return `<div class="list-item" style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:4px 4px">
+          return `<div class="list-item" style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:2px 4px">
             <span class="tag" style="background:color-mix(in srgb, ${cat.bg} 20%, #fff);color:${cat.fg};border:2px dashed ${cat.bg};margin-top:2px">${Util.esc(cat.label)}</span>
             <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
               <div style="display:flex;align-items:center;gap:10px;min-width:0">
@@ -2095,7 +2095,7 @@ const CalShared = (function () {
             ${readOnly ? '' : `<button class="link-btn" style="color:inherit;text-decoration:underline;font-size:11px" data-edit-event-btn="${it.id}">編輯</button>`}
           </div>`;
         }
-        return `<div class="list-item"${readOnly ? '' : ` data-dblclick-event="${it.id}"`} style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:4px 4px">
+        return `<div class="list-item"${readOnly ? '' : ` data-dblclick-event="${it.id}"`} style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:2px 4px">
           <span class="tag" style="background:${cat.bg};color:${cat.fg};margin-top:2px">${Util.esc(cat.label)}</span>
           <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
             <div style="display:flex;align-items:center;gap:10px;min-width:0">
@@ -2130,11 +2130,11 @@ const CalShared = (function () {
 
       panelEl.innerHTML = `
         <div class="card" style="margin-bottom:18px;padding:12px 20px" data-daypanel-part="info">
-          <div class="card-title" style="margin-bottom:4px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
+          <div class="card-title" style="margin-bottom:2px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
           ${scheduleItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
         </div>
         <div class="card" style="margin-bottom:18px;padding:12px 20px" data-daypanel-part="tasks">
-          <div class="card-title" style="margin-bottom:4px">✅ 這天的待辦事項</div>
+          <div class="card-title" style="margin-bottom:2px">✅ 這天的待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
         ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
@@ -2183,11 +2183,14 @@ const CalShared = (function () {
 
       // 「當天行程」卡片高度規則：把標題、行程列自己的內距都縮小過後，一筆行程/固定行程實際只需要約 91px，
       // 完全沒有行程或剛好一筆時都固定套用 100px，兩種情況高度一致、也不會有任何內容被切到或需要捲動；
-      // 兩筆以上就取消固定高度，讓卡片自然撐高
+      // 超過門檻筆數就取消固定高度，讓卡片自然撐高。
+      // 首頁是唯讀模式，行程列沒有編輯/刪除按鈕，比較省空間，2 筆也能剛好塞進 100px；
+      // 行事曆頁面可以編輯，行程列多了編輯/刪除按鈕，2 筆以上就會被切到，所以行事曆頁面的門檻只到 1 筆
       const DAYPANEL_FIXED_H = 100;
+      const daypanelMaxFixedItems = readOnly ? 2 : 1;
       const infoCardEl = panelEl.querySelector('[data-daypanel-part="info"]');
       if (infoCardEl) {
-        if (scheduleItems.length <= 1) {
+        if (scheduleItems.length <= daypanelMaxFixedItems) {
           infoCardEl.style.height = DAYPANEL_FIXED_H + 'px';
           infoCardEl.style.overflowY = 'hidden';
           infoCardEl.classList.add('daypanel-fixed100');
@@ -2197,10 +2200,10 @@ const CalShared = (function () {
           infoCardEl.classList.remove('daypanel-fixed100');
         }
       }
-      // 「這天的待辦事項」卡片套用同樣的高度規則：0～1 筆固定、不能滾動，2 筆以上自動撐高
+      // 「這天的待辦事項」卡片套用同樣的高度規則
       const tasksCardEl = panelEl.querySelector('[data-daypanel-part="tasks"]');
       if (tasksCardEl) {
-        if (taskItems.length <= 1) {
+        if (taskItems.length <= daypanelMaxFixedItems) {
           tasksCardEl.style.height = DAYPANEL_FIXED_H + 'px';
           tasksCardEl.style.overflowY = 'hidden';
           tasksCardEl.classList.add('daypanel-fixed100');
