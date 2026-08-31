@@ -2129,13 +2129,17 @@ const CalShared = (function () {
         </div>`;
 
       panelEl.innerHTML = `
-        <div class="card" style="margin-bottom:18px;padding:12px 20px" data-daypanel-part="info">
-          <div class="card-title" style="margin-bottom:2px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
-          ${scheduleItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
+        <div class="card" style="margin-bottom:18px;padding:12px 20px;display:flex;flex-direction:column" data-daypanel-part="info">
+          <div class="card-title" style="margin-bottom:10px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:0">
+            ${scheduleItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
+          </div>
         </div>
-        <div class="card" style="margin-bottom:18px;padding:12px 20px" data-daypanel-part="tasks">
-          <div class="card-title" style="margin-bottom:2px">✅ 這天的待辦事項</div>
-          ${taskItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
+        <div class="card" style="margin-bottom:18px;padding:12px 20px;display:flex;flex-direction:column" data-daypanel-part="tasks">
+          <div class="card-title" style="margin-bottom:10px">✅ 這天的待辦事項</div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:0">
+            ${taskItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
+          </div>
         </div>
         ${readOnly ? '' : `<div class="card" data-daypanel-part="eventform" style="display:flex;flex-direction:column;flex:1">
           <div class="card-title">新增行程</div>
