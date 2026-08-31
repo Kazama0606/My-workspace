@@ -2189,6 +2189,17 @@ const CalShared = (function () {
           infoCardEl.style.overflowY = '';
         }
       }
+      // 「這天的待辦事項」卡片套用同樣的高度規則：0～1 筆固定 100px，2 筆以上自動撐高
+      const tasksCardEl = panelEl.querySelector('[data-daypanel-part="tasks"]');
+      if (tasksCardEl) {
+        if (taskItems.length <= 1) {
+          tasksCardEl.style.height = '100px';
+          tasksCardEl.style.overflowY = 'auto';
+        } else {
+          tasksCardEl.style.height = '';
+          tasksCardEl.style.overflowY = '';
+        }
+      }
 
       // 待辦事項的勾選框不管是不是唯讀模式都會顯示(可以打勾完成)，所以要在下面的 readOnly 提前 return 之前先綁定
       panelEl.querySelectorAll('[data-toggle-task]').forEach(el => {
