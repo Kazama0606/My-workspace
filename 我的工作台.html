@@ -2177,6 +2177,19 @@ const CalShared = (function () {
       `;
       if (todoEl) { todoEl.innerHTML = todoCardHtml; }
 
+      // 「當天行程」卡片高度規則：完全沒有行程，或剛好只有一筆時，固定卡片高度為 100px(內容多出來的部分用內部捲動軸看，不會被切掉看不到)；
+      // 兩筆以上就取消固定高度，讓卡片自然撐高，不會互相擠壓看不到內容
+      const infoCardEl = panelEl.querySelector('[data-daypanel-part="info"]');
+      if (infoCardEl) {
+        if (scheduleItems.length <= 1) {
+          infoCardEl.style.height = '100px';
+          infoCardEl.style.overflowY = 'auto';
+        } else {
+          infoCardEl.style.height = '';
+          infoCardEl.style.overflowY = '';
+        }
+      }
+
       // 待辦事項的勾選框不管是不是唯讀模式都會顯示(可以打勾完成)，所以要在下面的 readOnly 提前 return 之前先綁定
       panelEl.querySelectorAll('[data-toggle-task]').forEach(el => {
         el.onchange = () => { if (el.checked) Util.playDing(); DataStore.toggleTask(el.dataset.toggleTask); opts.onRerender(); };
