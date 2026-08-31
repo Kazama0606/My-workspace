@@ -3525,8 +3525,9 @@ Pages.calendar = (function () {
   const QTR_H = 4; // px，每 5 分鐘一格的高度(24小時 x 12 = 288 格，一小時 = 48px)
   let dayAddHour = null; // 目前是哪個小時正在顯示「新增」表單
   let dayAddDate = null; // 週檢視改成 7 天並排後，新增表單要記住是哪一天(哪一欄)被雙擊的
-  let dayEditId = null; // 目前正在編輯哪筆事件
+  let dayEditId = null; // 目前正在編輯哪筆事件(或固定行程)
   let dayEditDate = null; // 正在編輯的那筆事件，是在哪一欄(哪一天)被雙擊打開編輯的
+  let dayEditKind = null; // 'event' 或 'recurring'：週檢視雙擊的是一般行程還是固定行程，決定要用哪個 DataStore 方法存檔
 
   function minutesOf(timeStr) {
     const [h, m] = timeStr.split(':').map(Number);
@@ -3679,7 +3680,8 @@ Pages.calendar = (function () {
       laidOut.forEach(({ it, start, end, lane, totalLanes }) => {
         const r1 = rowLine(start);
         const r2 = Math.max(r1 + 1, rowLine(end));
-        const isEditing = it.kind === 'event' && dayEditId === it.id && dayEditDate === ds;
+        const isEditableKind = it.kind === 'event' || it.kind === 'recurring';
+        const isEditing = isEditableKind && dayEditId === it.id && dayEditDate === ds;
         const cat = CalShared.categoryOf(it);
         // 重疊的行程改成「疊層」呈現：最早開始(通常也是比較長)的那筆維持整欄寬度當底層，
         // 之後重疊進來的每一筆維持「整條」但兩邊各留一點邊距(不是整個往右移)、疊在上面，加白色外框跟陰影區隔開來；
@@ -3706,16 +3708,17 @@ Pages.calendar = (function () {
         const showTitleBottom = isMultiDay && trueEndDay && !trueStartDay; // 跨天行程結束那天：標題顯示在色塊最下面
         const showTitle = !isMultiDay || trueStartDay || showTitleBottom; // 中間的天(既不是開始也不是結束)不顯示標題
         const timeStr = isMultiDay ? (trueStartDay ? `${it.startTime} 開始` : (trueEndDay ? `→ ${it.endTime} 結束` : '')) : (it.kind === 'event' ? Util.eventSpanLabel(it) : Util.timeRange(it.startTime, it.endTime));
-        const isLong = it.kind === 'event' && isLongItem(it, ds);
+        const isLong = isEditableKind && isLongItem(it, ds);
         // 長時間活動(例如台東旅遊)在週檢視不能直接整筆編輯，只能整筆在月曆頁編輯；
         // 這裡改成點色塊裡的哪個小時，就當作點那個小時要新增/編輯，不加 data-edit-event
-        const clickAttr = (it.kind === 'event' && !isLong) ? `data-select-event="${it.id}" data-edit-event="${it.id}" data-col-date="${ds}"` : '';
-        const isPillSelected = it.kind === 'event' && selectedPillId === it.id;
+        // 固定行程(例如皮膚科回診)一樣可以在這裡雙擊快速改時間/類型/標題，只是刪除鍵改成「取消這天」，不會整組刪掉
+        const clickAttr = (isEditableKind && !isLong) ? `data-select-event="${it.id}" data-edit-event="${it.id}" data-edit-kind="${it.kind}" data-col-date="${ds}"` : '';
+        const isPillSelected = isEditableKind && selectedPillId === it.id;
         const selClass = isPillSelected ? ' pill-selected' : '';
         const longClass = isLong ? ' day-long-pill' : '';
         const startHourAttr = isLong ? ` data-pill-start-hour="${Math.floor(start / 60)}" data-pill-date="${ds}"` : '';
         const bottomJustify = showTitleBottom ? ';justify-content:flex-end' : '';
-        gridHtml += `<div class="day-grid-block day-timeline-pill${selClass}${longClass}" ${clickAttr}${startHourAttr} style="grid-column:${col};grid-row:${r1} / ${r2};background:${cat.bg};color:${cat.fg};${laneStyle}${it.kind === 'event' ? 'cursor:pointer' : ''}${bottomJustify}">
+        gridHtml += `<div class="day-grid-block day-timeline-pill${selClass}${longClass}" ${clickAttr}${startHourAttr} style="grid-column:${col};grid-row:${r1} / ${r2};background:${cat.bg};color:${cat.fg};${laneStyle}${isEditableKind ? 'cursor:pointer' : ''}${bottomJustify}">
           <div class="day-timeline-pill-row">
             ${showTitle ? `<span class="day-timeline-pill-title">${prefix}${Util.esc(it.title)}</span>` : ''}
             ${timeStr ? `<span class="day-timeline-pill-time">${Util.esc(timeStr)}</span>` : ''}
@@ -3764,18 +3767,18 @@ Pages.calendar = (function () {
     const timelineEl = root.querySelector('.day-timeline');
     if (timelineEl) timelineEl.scrollTop = prevScrollTop;
 
-    document.getElementById('back-to-month').onclick = () => { selectedDate = dayViewDate; dayViewDate = null; dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; render(); };
-    document.getElementById('day-prev').onclick = () => { dayViewDate = Util.shiftDateStr(dayViewDate, -7); selectedDate = dayViewDate; dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; render(); };
-    document.getElementById('day-next').onclick = () => { dayViewDate = Util.shiftDateStr(dayViewDate, 7); selectedDate = dayViewDate; dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; render(); };
+    document.getElementById('back-to-month').onclick = () => { selectedDate = dayViewDate; dayViewDate = null; dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; dayEditKind = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; render(); };
+    document.getElementById('day-prev').onclick = () => { dayViewDate = Util.shiftDateStr(dayViewDate, -7); selectedDate = dayViewDate; dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; dayEditKind = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; render(); };
+    document.getElementById('day-next').onclick = () => { dayViewDate = Util.shiftDateStr(dayViewDate, 7); selectedDate = dayViewDate; dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; dayEditKind = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; render(); };
     root.querySelectorAll('[data-select-hour]').forEach(el => {
-      el.onclick = () => { selectedHour = Number(el.dataset.selectHour); selectedHourDate = el.dataset.colDate; dayEditId = null; dayEditDate = null; selectedPillId = null; renderWeekView(); };
-      el.ondblclick = () => { dayAddHour = Number(el.dataset.addHour); dayAddDate = el.dataset.colDate; dayEditId = null; dayEditDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; renderWeekView(); };
+      el.onclick = () => { selectedHour = Number(el.dataset.selectHour); selectedHourDate = el.dataset.colDate; dayEditId = null; dayEditDate = null; dayEditKind = null; selectedPillId = null; renderWeekView(); };
+      el.ondblclick = () => { dayAddHour = Number(el.dataset.addHour); dayAddDate = el.dataset.colDate; dayEditId = null; dayEditDate = null; dayEditKind = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; renderWeekView(); };
     });
     root.querySelectorAll('[data-select-event]').forEach(el => {
       el.onclick = () => { selectedPillId = el.dataset.selectEvent; selectedHour = null; selectedHourDate = null; renderWeekView(); };
     });
     root.querySelectorAll('[data-edit-event]').forEach(el => {
-      el.ondblclick = () => { dayEditId = el.dataset.editEvent; dayEditDate = el.dataset.colDate; dayAddHour = null; dayAddDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; renderWeekView(); };
+      el.ondblclick = () => { dayEditId = el.dataset.editEvent; dayEditDate = el.dataset.colDate; dayEditKind = el.dataset.editKind || 'event'; dayAddHour = null; dayAddDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null; renderWeekView(); };
     });
     renderFloatingForm(root);
     wirePillHourHover(root);
@@ -3793,12 +3796,14 @@ Pages.calendar = (function () {
 
     let innerHtml = null, editing = false, bg = null, topPx = 0, formDate = null;
     if (dayEditId !== null) {
-      const it = DataStore.getEvents().find(x => x.id === dayEditId);
+      const it = dayEditKind === 'recurring'
+        ? DataStore.getRecurring().find(x => x.id === dayEditId)
+        : DataStore.getEvents().find(x => x.id === dayEditId);
       if (it) {
-        formDate = dayEditDate || it.date;
+        formDate = dayEditDate || it.date || DataStore.todayStr();
         const { start } = eventMinuteRangeForDate(it, formDate);
         topPx = Math.round(start / 5) * QTR_H;
-        innerHtml = dayEventFormHtml({ mode: 'edit', item: it });
+        innerHtml = dayEventFormHtml({ mode: 'edit', item: it, kind: dayEditKind });
         editing = true;
         bg = CalShared.categoryOf(it).bg;
       }
@@ -3872,7 +3877,7 @@ Pages.calendar = (function () {
         const relHour = Math.max(0, Math.floor(relY / HOUR_PX));
         const startHour = Number(pill.dataset.pillStartHour || 0);
         const hourIndex = Math.max(0, Math.min(23, startHour + relHour));
-        dayAddHour = hourIndex; dayAddDate = pill.dataset.pillDate || null; dayEditId = null; dayEditDate = null; selectedPillId = null; selectedHour = null; selectedHourDate = null;
+        dayAddHour = hourIndex; dayAddDate = pill.dataset.pillDate || null; dayEditId = null; dayEditDate = null; dayEditKind = null; selectedPillId = null; selectedHour = null; selectedHourDate = null;
         renderWeekView();
       });
     });
@@ -3889,8 +3894,10 @@ Pages.calendar = (function () {
   }
 
   // 單日時間軸裡「新增」／「編輯」共用的表單：幾點到幾點、要做什麼、類型顏色、備註
+  // kind = 'recurring' 時代表編輯的是固定行程(例如皮膚科回診)：沒有備註欄位，「刪除」改成「取消這天」(只跳過這次，不影響後面每次的固定行程)
   function dayEventFormHtml(opts) {
     const isEdit = opts.mode === 'edit';
+    const isRecurring = isEdit && opts.kind === 'recurring';
     const it = opts.item;
     const uid = isEdit ? `de-${it.id}` : `da-${opts.hour}`;
     const title = isEdit ? it.title : '';
@@ -3900,7 +3907,8 @@ Pages.calendar = (function () {
     const startTime = isEdit ? (it.startTime || '') : `${String(opts.hour).padStart(2, '0')}:00`;
     const endTime = isEdit ? (it.endTime || '') : `${String(Math.min(23, opts.hour + 1)).padStart(2, '0')}:00`;
     return `
-      <div class="day-add-form" data-form-uid="${uid}" data-form-mode="${opts.mode}" data-form-id="${isEdit ? it.id : ''}">
+      <div class="day-add-form" data-form-uid="${uid}" data-form-mode="${opts.mode}" data-form-id="${isEdit ? it.id : ''}" data-form-kind="${isRecurring ? 'recurring' : 'event'}">
+        ${isRecurring ? `<div class="muted" style="font-size:11px;margin-bottom:6px">🔁 固定行程</div>` : ''}
         <input class="input" id="${uid}-title" placeholder="幾點到幾點要做什麼？" value="${Util.esc(title)}" style="margin-bottom:6px">
         <div style="margin-bottom:6px">${CalShared.categoryFieldHtml(`${uid}-cat`, category, categoryColor)}</div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:6px;cursor:pointer">
@@ -3911,10 +3919,10 @@ Pages.calendar = (function () {
           <span class="muted">–</span>
           ${Util.timeSelectHtml(`${uid}-end`, endTime)}
         </div>
-        <textarea class="input" id="${uid}-note" placeholder="備註（選填）" style="margin-bottom:6px;min-height:44px;resize:vertical">${Util.esc(note)}</textarea>
+        ${isRecurring ? '' : `<textarea class="input" id="${uid}-note" placeholder="備註（選填）" style="margin-bottom:6px;min-height:44px;resize:vertical">${Util.esc(note)}</textarea>`}
         <div class="form-row" style="align-items:center;margin-bottom:0">
           <button class="btn btn-sm" style="background:var(--blue-accent);color:#fff" id="${uid}-confirm">${isEdit ? '確認' : '新增'}</button>
-          ${isEdit ? `<button class="link-btn" style="color:var(--danger)" id="${uid}-delete">刪除</button>` : ''}
+          ${isEdit ? `<button class="link-btn" style="color:var(--danger)" id="${uid}-delete">${isRecurring ? '取消這天' : '刪除'}</button>` : ''}
           <button class="link-btn" id="${uid}-cancel">取消</button>
         </div>
       </div>
@@ -3927,6 +3935,7 @@ Pages.calendar = (function () {
     const uid = form.dataset.formUid;
     const mode = form.dataset.formMode;
     const id = form.dataset.formId;
+    const formKind = form.dataset.formKind || 'event';
     const titleInput = document.getElementById(`${uid}-title`);
     CalShared.wireCategoryField(`${uid}-cat`);
     const alldayCb = document.getElementById(`${uid}-allday`);
@@ -3941,12 +3950,18 @@ Pages.calendar = (function () {
       const isAllday = alldayCb && alldayCb.checked;
       const startTime = isAllday ? '' : Util.timeSelectValue(`${uid}-start`);
       const endTime = isAllday ? '' : Util.timeSelectValue(`${uid}-end`);
-      const note = document.getElementById(`${uid}-note`).value.trim();
+      const noteEl = document.getElementById(`${uid}-note`);
+      const note = noteEl ? noteEl.value.trim() : '';
       if (mode === 'add') {
         const targetDate = dayAddDate || selectedDate;
         DataStore.addEvent(targetDate, title, note, category, startTime, endTime, categoryColor, targetDate);
         dayAddHour = null;
         dayAddDate = null;
+      } else if (formKind === 'recurring') {
+        DataStore.updateRecurring(id, { title, category, categoryColor, startTime, endTime });
+        dayEditId = null;
+        dayEditDate = null;
+        dayEditKind = null;
       } else {
         DataStore.updateEvent(id, { title, category, categoryColor, startTime, endTime, note });
         dayEditId = null;
@@ -3956,15 +3971,24 @@ Pages.calendar = (function () {
       renderWeekView();
     };
     document.getElementById(`${uid}-confirm`).onclick = confirm;
-    const cancel = () => { cleanup(); dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; renderWeekView(); };
+    const cancel = () => { cleanup(); dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; dayEditKind = null; renderWeekView(); };
     const cancelBtn = document.getElementById(`${uid}-cancel`);
     if (cancelBtn) cancelBtn.onclick = cancel;
     const delBtn = document.getElementById(`${uid}-delete`);
-    if (delBtn) delBtn.onclick = () => { cleanup(); DataStore.deleteEvent(id); dayEditId = null; dayEditDate = null; renderWeekView(); };
+    if (delBtn) delBtn.onclick = () => {
+      cleanup();
+      if (formKind === 'recurring') {
+        // 固定行程的「刪除」按鈕在這裡代表「取消這天」：只跳過這一次出現，後面每次的固定行程不受影響
+        DataStore.cancelRecurringOccurrence(id, dayEditDate);
+      } else {
+        DataStore.deleteEvent(id);
+      }
+      dayEditId = null; dayEditDate = null; dayEditKind = null; renderWeekView();
+    };
 
     // 點表單以外的空白處，或按 ESC，直接把編輯/新增視窗關掉(不儲存)
-    const onOutsideClick = (e) => { if (!form.contains(e.target)) { cleanup(); dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; renderWeekView(); } };
-    const onKeydown = (e) => { if (e.key === 'Escape') { cleanup(); dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; renderWeekView(); } };
+    const onOutsideClick = (e) => { if (!form.contains(e.target)) { cleanup(); dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; dayEditKind = null; renderWeekView(); } };
+    const onKeydown = (e) => { if (e.key === 'Escape') { cleanup(); dayAddHour = null; dayAddDate = null; dayEditId = null; dayEditDate = null; dayEditKind = null; renderWeekView(); } };
     function cleanup() {
       document.removeEventListener('click', onOutsideClick, true);
       document.removeEventListener('keydown', onKeydown);
