@@ -2027,15 +2027,15 @@ const CalShared = (function () {
             `;
           }
           const cat = categoryOf(it);
-          return `<div class="list-item" style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start">
+          return `<div class="list-item" style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:4px 4px">
             <span class="tag" style="background:color-mix(in srgb, ${cat.bg} 20%, #fff);color:${cat.fg};border:2px dashed ${cat.bg};margin-top:2px">${Util.esc(cat.label)}</span>
-            <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
               <div style="display:flex;align-items:center;gap:10px;min-width:0">
                 <span class="grow" style="color:#1a1a1a">${Util.esc(it.title)}</span>
                 ${timeStr ? `<span style="font-size:12px;white-space:nowrap;color:#1a1a1a">${timeStr}</span>` : ''}
                 <span class="muted" style="font-size:11px;white-space:nowrap">${recurrenceLabel(it)}</span>
               </div>
-              ${readOnly ? '' : `<div style="display:flex;gap:14px">
+              ${readOnly ? '' : `<div style="display:flex;gap:10px">
                 <button class="link-btn" data-edit-recurring-btn="${it.id}">編輯</button>
                 <button class="link-btn" style="color:var(--orange-accent, #d97706)" data-cancel-occurrence="${it.id}" data-cancel-date="${selectedDate}">取消這天</button>
                 <button class="link-btn" style="color:var(--danger)" data-del-recurring="${it.id}">刪除</button>
@@ -2095,9 +2095,9 @@ const CalShared = (function () {
             ${readOnly ? '' : `<button class="link-btn" style="color:inherit;text-decoration:underline;font-size:11px" data-edit-event-btn="${it.id}">編輯</button>`}
           </div>`;
         }
-        return `<div class="list-item"${readOnly ? '' : ` data-dblclick-event="${it.id}"`} style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start">
+        return `<div class="list-item"${readOnly ? '' : ` data-dblclick-event="${it.id}"`} style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:4px 4px">
           <span class="tag" style="background:${cat.bg};color:${cat.fg};margin-top:2px">${Util.esc(cat.label)}</span>
-          <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
             <div style="display:flex;align-items:center;gap:10px;min-width:0">
               <span class="grow" style="color:#1a1a1a">${Util.esc(it.title)}</span>
               ${timeStr ? `<span style="font-size:12px;white-space:nowrap;color:#1a1a1a">${timeStr}</span>` : ''}
@@ -2129,11 +2129,11 @@ const CalShared = (function () {
         </div>`;
 
       panelEl.innerHTML = `
-        <div class="card" style="margin-bottom:18px" data-daypanel-part="info">
+        <div class="card" style="margin-bottom:18px;padding:12px 20px" data-daypanel-part="info">
           <div class="card-title" style="margin-bottom:4px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
           ${scheduleItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
         </div>
-        <div class="card" style="margin-bottom:18px" data-daypanel-part="tasks">
+        <div class="card" style="margin-bottom:18px;padding:12px 20px" data-daypanel-part="tasks">
           <div class="card-title" style="margin-bottom:4px">✅ 這天的待辦事項</div>
           ${taskItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
         </div>
@@ -2181,10 +2181,10 @@ const CalShared = (function () {
       `;
       if (todoEl) { todoEl.innerHTML = todoCardHtml; }
 
-      // 「當天行程」卡片高度規則：這裡改成用「一筆行程實際需要的高度」當基準(目前約 121px)，
-      // 完全沒有行程或剛好一筆時都固定套用這個高度，兩種情況看起來高度一致、也不會有任何內容被切到或需要捲動；
+      // 「當天行程」卡片高度規則：把標題、行程列自己的內距都縮小過後，一筆行程/固定行程實際只需要約 91px，
+      // 完全沒有行程或剛好一筆時都固定套用 100px，兩種情況高度一致、也不會有任何內容被切到或需要捲動；
       // 兩筆以上就取消固定高度，讓卡片自然撐高
-      const DAYPANEL_FIXED_H = 123;
+      const DAYPANEL_FIXED_H = 100;
       const infoCardEl = panelEl.querySelector('[data-daypanel-part="info"]');
       if (infoCardEl) {
         if (scheduleItems.length <= 1) {
