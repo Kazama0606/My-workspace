@@ -188,6 +188,10 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
 
 .empty-hint { color: var(--muted); font-size: 13px; padding: 20px 4px; text-align: center; }
 
+/* 「當天行程」「這天的待辦事項」卡片固定 100px 高度時用：內容超出還是可以捲動看到，但不顯示捲軸本身，畫面比較乾淨 */
+.daypanel-fixed100 { scrollbar-width: none; -ms-overflow-style: none; }
+.daypanel-fixed100::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
 /* ── 待辦清單：欄位順序 待辦事項→辦理日期→專案名稱→備註 ── */
 .todo-rows { display: flex; flex-direction: column; }
 .todo-row {
@@ -2184,9 +2188,11 @@ const CalShared = (function () {
         if (scheduleItems.length <= 1) {
           infoCardEl.style.height = '100px';
           infoCardEl.style.overflowY = 'auto';
+          infoCardEl.classList.add('daypanel-fixed100');
         } else {
           infoCardEl.style.height = '';
           infoCardEl.style.overflowY = '';
+          infoCardEl.classList.remove('daypanel-fixed100');
         }
       }
       // 「這天的待辦事項」卡片套用同樣的高度規則：0～1 筆固定 100px，2 筆以上自動撐高
@@ -2195,9 +2201,11 @@ const CalShared = (function () {
         if (taskItems.length <= 1) {
           tasksCardEl.style.height = '100px';
           tasksCardEl.style.overflowY = 'auto';
+          tasksCardEl.classList.add('daypanel-fixed100');
         } else {
           tasksCardEl.style.height = '';
           tasksCardEl.style.overflowY = '';
+          tasksCardEl.classList.remove('daypanel-fixed100');
         }
       }
 
