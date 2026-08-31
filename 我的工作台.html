@@ -3344,20 +3344,24 @@ Pages.calendar = (function () {
           ${bulkCancelResult !== null ? `<div class="muted" style="font-size:12px;margin-top:8px">已取消 ${bulkCancelResult} 個原本會出現的行程項目 ✓</div>` : ''}
         `}
       </div>` : ''}
-      <div id="cal-2x2" style="display:grid;grid-template-columns:1fr 300px;grid-template-rows:auto auto;gap:20px;align-items:start;margin-bottom:20px">
-        <div class="card" id="cal-card" style="grid-column:1;grid-row:1;display:flex;flex-direction:column;min-width:0">
-          <div class="cal-hd">
-            <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
-            <b>${viewYear} 年 ${viewMonth + 1} 月</b>
-            <button class="btn btn-ghost btn-sm" id="next-m">→</button>
+      <div id="cal-2x2" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px">
+        <div id="cal-left-col" style="flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:20px">
+          <div class="card" id="cal-card" style="display:flex;flex-direction:column;min-width:0">
+            <div class="cal-hd">
+              <button class="btn btn-ghost btn-sm" id="prev-m">←</button>
+              <b>${viewYear} 年 ${viewMonth + 1} 月</b>
+              <button class="btn btn-ghost btn-sm" id="next-m">→</button>
+            </div>
+            <div class="cal-grid cal-grid-compact" id="cal-grid"></div>
           </div>
-          <div class="cal-grid cal-grid-compact" id="cal-grid" style="flex:1"></div>
+          <div class="card" id="habits-embed"></div>
         </div>
-        <div id="side-col" style="grid-column:2;grid-row:1;min-width:0;max-width:300px;display:flex;flex-direction:column;gap:18px">
-          <div id="day-panel" style="display:flex;flex-direction:column;flex:1;min-width:0"></div>
+        <div id="cal-right-col" style="flex:0 0 300px;max-width:300px;min-width:0;display:flex;flex-direction:column;gap:20px">
+          <div id="side-col" style="min-width:0;display:flex;flex-direction:column;gap:18px">
+            <div id="day-panel" style="display:flex;flex-direction:column;min-width:0"></div>
+          </div>
+          <div id="todo-col" style="min-width:0;display:flex;flex-direction:column"></div>
         </div>
-        <div class="card" id="habits-embed" style="grid-column:1;grid-row:2"></div>
-        <div id="todo-col" style="grid-column:2;grid-row:2;min-width:0;max-width:300px;display:flex;flex-direction:column"></div>
       </div>
     `;
     document.getElementById('prev-m').onclick = () => { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); };
