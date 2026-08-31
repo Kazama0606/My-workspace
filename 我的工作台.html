@@ -353,7 +353,7 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
 
 /* ── 行事曆：週檢視(雙擊月曆日期切換進來)，用 CSS Grid 原生跨列(grid-row)畫出事件方塊，
    對齊 5 分鐘刻度，瀏覽器原生保證位置精準，不會被捲動容器或絕對定位的計算誤差影響 ── */
-.day-timeline { max-height: 760px; overflow-y: auto; overflow-x: auto; border-top: 1px solid var(--border); user-select: none; }
+.day-timeline { overflow-x: auto; border-top: 1px solid var(--border); user-select: none; }
 .week-strip { user-select: none; }
 .week-header-row { display: grid; gap: 0; position: sticky; top: 0; background: var(--card); z-index: 3; }
 .week-day-header { text-align: center; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 2px; border-left: 1px solid var(--border); line-height: 1.4; }
