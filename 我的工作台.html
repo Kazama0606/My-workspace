@@ -2089,7 +2089,7 @@ const CalShared = (function () {
         // 跨天長行程(例如出遊好幾天)改成一條精簡的橫幅樣式：色塊背景、只有標題+日期範圍，不會跟下面時間軸行程的排版混在一起顯得雜亂
         if (isSpanningEvent(it)) {
           const rangeLabel = `${it.date.slice(5)} ～ ${it.endDate.slice(5)}`;
-          return `<div class="list-item banner-item"${readOnly ? '' : ` data-dblclick-event="${it.id}"`} style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:${cat.bg};color:${cat.fg};margin-bottom:6px">
+          return `<div class="list-item banner-item"${readOnly ? '' : ` data-dblclick-event="${it.id}"`} style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:${cat.bg};color:${cat.fg};margin:2px 0 6px 0">
             <span style="font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🧳 ${Util.esc(it.title)}</span>
             <span style="font-size:11px;opacity:.8;white-space:nowrap">${rangeLabel}</span>
             ${readOnly ? '' : `<button class="link-btn" style="color:inherit;text-decoration:underline;font-size:11px" data-edit-event-btn="${it.id}">編輯</button>`}
@@ -2130,14 +2130,14 @@ const CalShared = (function () {
 
       panelEl.innerHTML = `
         <div class="card" style="margin-bottom:18px;padding:12px 20px;display:flex;flex-direction:column" data-daypanel-part="info">
-          <div class="card-title" style="margin-bottom:10px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
-          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:0">
+          <div class="card-title" style="margin-bottom:14px">📅 ${selectedDate}${TW_HOLIDAYS_2026[selectedDate] ? ` <span style="color:var(--danger);font-weight:700">・${Util.esc(TW_HOLIDAYS_2026[selectedDate])}</span>` : ''}</div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:0;overflow:hidden">
             ${scheduleItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有安排行程</div>' : scheduleItems.map(renderItemRow).join('')}
           </div>
         </div>
         <div class="card" style="margin-bottom:18px;padding:12px 20px;display:flex;flex-direction:column" data-daypanel-part="tasks">
-          <div class="card-title" style="margin-bottom:10px">✅ 這天的待辦事項</div>
-          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:0">
+          <div class="card-title" style="margin-bottom:14px">✅ 這天的待辦事項</div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:0;overflow:hidden">
             ${taskItems.length === 0 ? '<div class="empty-hint" style="padding:10px 4px">這天沒有待辦事項</div>' : taskItems.map(renderItemRow).join('')}
           </div>
         </div>
