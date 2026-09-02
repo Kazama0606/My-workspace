@@ -839,6 +839,13 @@ const CloudSync = (function () {
 /* 資料層 — 目前存 localStorage，之後要換 Firebase 只需改這支檔案 */
 const DataStore = (function () {
   const KEY = 'dashboard_template_v1';
+  // 這台裝置/瀏覽器是不是「完全沒同步過」的全新狀態(localStorage 裡連一筆存檔紀錄都沒有)。
+  // 用來避免下面這個真實發生過的 bug：全新裝置打開時會自動塞幾筆範例行程方便展示，
+  // 塞範例資料當下會呼叫一次 save()，把 updatedAt 蓋成「現在」這個很新的時間戳記；
+  // 如果這個新時間戳記剛好比雲端那份「真正有資料」的舊時間戳記還新，同步比對邏輯就會誤判成「本機比雲端新」，
+  // 因而不去套用雲端的真實資料、甚至還把這份範例資料整個推上雲端蓋掉真實資料。
+  // 只要記得「這台裝置本來就是全新的、還沒有任何自己存過的資料」，就能在比對時無條件優先採用雲端資料，而不是比時間戳記。
+  const wasFreshInstall = !localStorage.getItem(KEY);
 
   function load() {
     const defaults = {
@@ -1100,6 +1107,7 @@ const DataStore = (function () {
   return {
     todayStr,
     getUpdatedAt: () => db.updatedAt || 0,
+    wasFreshInstall: () => wasFreshInstall,
     exportRaw: () => db,
     // 套用從雲端拿回來的資料：整個換掉本機這份，只存 localStorage、不再推回雲端(避免自己推給自己)
     replaceAll: (newDb) => {
@@ -4831,14 +4839,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // 不會自動覆蓋，會先跳出來問，避免重演之前雲端同步把真實資料蓋成空的的問題
   CloudSync.listen((payloadStr, remoteUpdatedAt) => {
     const localUpdatedAt = DataStore.getUpdatedAt();
-    if (remoteUpdatedAt > localUpdatedAt) {
+    // 這台裝置本來就是全新的(還沒有任何自己存過的資料，畫面上看到的只是自動塞的範例行程)：
+    // 這種情況下，只要雲端「有任何一份」真實資料，就無條件直接套用，不看時間戳記比較新舊——
+    // 因為範例資料塞進來的當下會蓋一個「現在」的新時間戳記，時間戳記本身在這裡沒有參考意義，
+    // 這是為了修正之前發生過的真實 bug：新裝置的範例資料時間戳記「看起來比較新」，導致真實雲端資料被忽略、甚至被覆蓋掉。
+    const shouldForceApplyRemote = DataStore.wasFreshInstall && DataStore.wasFreshInstall();
+    if (shouldForceApplyRemote || remoteUpdatedAt > localUpdatedAt) {
       try {
         const remoteDb = JSON.parse(payloadStr);
         const localRichness = estimateDataRichness(DataStore.exportRaw ? DataStore.exportRaw() : null);
         const remoteRichness = estimateDataRichness(remoteDb);
-        // 門檻放寬：只有雲端「明顯」比本機少(差超過3筆、而且不到本機的7成)才跳出來確認，
-        // 一般多裝置使用時，各自剛好還沒同步到的一點點正常落差不會再一直誤觸發
-        const looksLikeDataLoss = localRichness > 0 && remoteRichness < localRichness - 3 && remoteRichness < localRichness * 0.7;
+        // 全新裝置的情況下，畫面上顯示的「本機資料」只是自動塞的範例行程，不是使用者真正存過的東西，
+        // 不需要跟雲端比較「誰的資料比較豐富」，雲端那份永遠都該直接套用，不用跳出確認視窗
+        const looksLikeDataLoss = !shouldForceApplyRemote && localRichness > 0 && remoteRichness < localRichness - 3 && remoteRichness < localRichness * 0.7;
 
         function applyRemoteNow() {
           CloudSync.setApplyingRemote(true);
