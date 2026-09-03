@@ -583,13 +583,25 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
   .todo-due { flex: 0 0 auto; }
   .todo-row select.cell-input { flex: 1 1 140px; }
 
-  /* ── 單日時間軸：手機螢幕要一次塞下全部 7 天，不能再讓每欄有最小寬度、也不能再橫向捲動；
-     時間數字(例如「07:30–12:00」)在這麼窄的欄位下無論如何都放不下，改成手機版直接不顯示，
-     色塊本身的顏色+標題(擠不下時用「…」)已經夠辨識，需要精確時間點進去看就好 ── */
+  /* ── 單日時間軸：手機螢幕要一次塞下全部 7 天，同時又要看得到完整標題，兩個要同時做到，
+     單純橫排文字物理上不可能，改成標題文字「直書」(直向排列，由上往下)——色塊通常都有好幾格小時的高度，
+     直書可以用「高度」當作文字可用的長度，比橫向硬擠一行能顯示的字多很多，中文直書也很自然、不會看起來奇怪 ── */
   .week-inner-wrap { min-width: 0 !important; width: 100% !important; }
   .week-cal-cols { grid-template-columns: 26px repeat(7, 1fr) !important; }
   .day-grid-label { font-size: 9px; padding-right: 2px; }
-  .day-timeline-pill-title { font-size: 10px; }
+  .day-timeline-pill-row {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    height: 100%;
+    align-items: flex-start !important;
+    justify-content: center;
+    gap: 4px;
+  }
+  .day-timeline-pill-title {
+    font-size: 11px;
+    max-height: 100%;
+    text-orientation: mixed;
+  }
   .day-timeline-pill-time { display: none; }
   .week-strip-dow { font-size: 11px; }
   .week-strip-num { width: 22px; height: 22px; line-height: 22px; font-size: 12px; }
