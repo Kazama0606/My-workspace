@@ -606,6 +606,11 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
   .day-timeline-pill-time { display: none; }
   .week-strip-dow { font-size: 11px; }
   .week-strip-num { width: 22px; height: 22px; line-height: 22px; font-size: 12px; }
+  /* 週檢視最上面「← 上週／日期區間／下週 →」這排：務必擠在同一行，不要讓按鈕跟日期各自換行，
+     用縮小字級跟按鈕內距的方式換取空間，而不是讓它們裂成兩行 */
+  .cal-hd-week { flex-wrap: nowrap; gap: 4px; }
+  .cal-hd-week .btn-sm { padding: 4px 8px; font-size: 12px; white-space: nowrap; flex: 0 0 auto; }
+  .cal-hd-week b { font-size: 13px; flex: 1 1 auto; text-align: center; overflow: hidden; text-overflow: ellipsis; }
 
   /* ── 資產負債的金額輸入欄在窄螢幕縮小固定寬度 ── */
   .amt-wrap { flex-basis: 120px; }
@@ -3776,7 +3781,7 @@ Pages.calendar = (function () {
         <div class="page-sub">一整週 7 天同時攤開；點左邊的小時數字可以在該天該小時新增行程（即使那小時已經有其他行程也可以疊加），單擊既有行程會反藍選取、雙擊才會打開編輯</div>
       </div>
       <div class="card" style="margin-bottom:20px">
-        <div class="cal-hd">
+        <div class="cal-hd cal-hd-week">
           <button class="btn btn-ghost btn-sm" id="day-prev">← 上週</button>
           <b>${weekDates[0]} ～ ${weekDates[6]}</b>
           <button class="btn btn-ghost btn-sm" id="day-next">下週 →</button>
