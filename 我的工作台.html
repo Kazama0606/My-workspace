@@ -584,6 +584,10 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
   .week-grid, .week-header-row { grid-template-columns: 40px repeat(7,minmax(84px,1fr)) !important; }
   .day-grid-label { font-size: 10px; padding-right: 4px; }
   .day-timeline-pill-title { font-size: 12px; }
+  /* 週檢視色塊：手機一欄比較窄，標題+時間硬擠在同一行常常會被切掉看不全，
+     改成擠不下就自動換到下一行，時間字級也縮小一點，兩個一起讓色塊裡的文字才看得完整 */
+  .day-timeline-pill-row { flex-wrap: wrap; row-gap: 0; }
+  .day-timeline-pill-time { font-size: 9.5px; }
 
   /* ── 資產負債的金額輸入欄在窄螢幕縮小固定寬度 ── */
   .amt-wrap { flex-basis: 120px; }
