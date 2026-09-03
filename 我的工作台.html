@@ -554,9 +554,10 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
   /* 首頁小月曆在手機上格子太小又被 min-height:90px 撐成長條，改成跟行事曆頁一樣的小尺寸，字才看得清楚 */
   #home-cal-grid.cal-grid { gap: 4px; }
   #home-cal-grid .cal-week-grid { gap: 4px; }
-  #home-cal-grid .cal-cell { height: 150px; min-height: 150px; padding: 3px; font-size: 10px; gap: 1px; aspect-ratio: auto !important; }
+  #home-cal-grid .cal-cell { height: 150px; min-height: 150px; padding: 4px; font-size: 10px; gap: 4px; aspect-ratio: auto !important; }
   #home-cal-grid .cal-daynum { font-size: 11px; }
   #home-cal-grid .cal-dow { font-size: 11px; }
+  #home-cal-grid .cal-dot { padding: 3px 5px 3px 6px; }
   /* 雲端同步狀態文字：獨立佔頂部第一排、靠右對齊，下面第二排才是照片+導覽圖示，兩排都在 sticky 固定列裡，
      捲動頁面時整組一起固定在最上面，不會疊到下面頁面內容的標題上 */
   #cloud-sync-status {
