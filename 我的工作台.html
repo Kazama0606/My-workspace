@@ -249,8 +249,9 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
 .shop-input { font-size: 15px; padding: 9px 11px; }
 
 /* ── Calendar ── */
-.cal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; gap: 10px; }
+.cal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; gap: 10px; flex-wrap: wrap; }
 .cal-hd .btn-sm { padding: 6px 14px; font-size: 14px; }
+.cal-hd b { white-space: nowrap; }
 /* ── 週檢視：頂部一排可點的日期(取代原本的 7 天 x 24 小時大表格) ── */
 .week-strip { display: flex; gap: 8px; justify-content: space-between; }
 .week-strip-day {
