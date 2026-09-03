@@ -367,6 +367,9 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
 .week-grid-block { margin: 1px 2px; overflow: hidden; align-self: stretch; }
 .week-grid-form { overflow: visible; width: 280px; position: relative; }
 .day-grid { display: grid; position: relative; }
+/* 週檢視 7 天並排共用的欄位寬度設定：桌面版每欄至少 72px(擠不下就整體橫向捲動)；
+   手機版另外在 media query 裡蓋成「7 欄平分寬度、不強制最小寬度」，讓一整週直接塞進螢幕，不用捲動 */
+.week-cal-cols { grid-template-columns: 48px repeat(7, minmax(72px, 1fr)); }
 .day-grid-label {
   font-size: 11px; color: var(--muted); padding: 4px 8px 0 0; text-align: right; font-variant-numeric: tabular-nums;
   align-self: stretch; cursor: pointer; border-radius: 4px; box-sizing: border-box;
@@ -580,14 +583,16 @@ input.input[type="date"], input.input[type="time"] { line-height: 20px; }
   .todo-due { flex: 0 0 auto; }
   .todo-row select.cell-input { flex: 1 1 140px; }
 
-  /* ── 單日時間軸：時間標籤欄縮窄一點，讓內容區有更多空間 ── */
-  .week-grid, .week-header-row { grid-template-columns: 40px repeat(7,minmax(84px,1fr)) !important; }
-  .day-grid-label { font-size: 10px; padding-right: 4px; }
-  .day-timeline-pill-title { font-size: 12px; }
-  /* 週檢視色塊：手機一欄比較窄，標題+時間硬擠在同一行常常會被切掉看不全，
-     改成擠不下就自動換到下一行，時間字級也縮小一點，兩個一起讓色塊裡的文字才看得完整 */
-  .day-timeline-pill-row { flex-wrap: wrap; row-gap: 0; }
-  .day-timeline-pill-time { font-size: 9.5px; }
+  /* ── 單日時間軸：手機螢幕要一次塞下全部 7 天，不能再讓每欄有最小寬度、也不能再橫向捲動；
+     時間數字(例如「07:30–12:00」)在這麼窄的欄位下無論如何都放不下，改成手機版直接不顯示，
+     色塊本身的顏色+標題(擠不下時用「…」)已經夠辨識，需要精確時間點進去看就好 ── */
+  .week-inner-wrap { min-width: 0 !important; width: 100% !important; }
+  .week-cal-cols { grid-template-columns: 26px repeat(7, 1fr) !important; }
+  .day-grid-label { font-size: 9px; padding-right: 2px; }
+  .day-timeline-pill-title { font-size: 10px; }
+  .day-timeline-pill-time { display: none; }
+  .week-strip-dow { font-size: 11px; }
+  .week-strip-num { width: 22px; height: 22px; line-height: 22px; font-size: 12px; }
 
   /* ── 資產負債的金額輸入欄在窄螢幕縮小固定寬度 ── */
   .amt-wrap { flex-basis: 120px; }
@@ -3764,8 +3769,8 @@ Pages.calendar = (function () {
           <button class="btn btn-ghost btn-sm" id="day-next">下週 →</button>
         </div>
         <div class="week-scroll-wrap" style="overflow-x:auto;overflow-y:hidden">
-          <div style="min-width:552px">
-            <div class="week-grid-header" style="display:grid;grid-template-columns:48px repeat(7,minmax(72px,1fr));gap:0 4px">
+          <div class="week-inner-wrap" style="min-width:552px">
+            <div class="week-grid-header week-cal-cols" style="display:grid;gap:0 4px">
               <div></div>
               ${weekDates.map((wds, i) => {
                 const dt = new Date(wds + 'T00:00:00');
@@ -3778,12 +3783,12 @@ Pages.calendar = (function () {
                 </div>`;
               }).join('')}
             </div>
-            ${anyAllDay ? `<div class="week-allday-row" style="display:grid;grid-template-columns:48px repeat(7,minmax(72px,1fr));gap:4px;margin:8px 0 0">
+            ${anyAllDay ? `<div class="week-allday-row week-cal-cols" style="display:grid;gap:4px;margin:8px 0 0">
               <div class="muted" style="font-size:11px;padding-top:4px">全天</div>
               ${perDay.map(p => `<div style="display:flex;flex-direction:column;gap:4px;min-width:0">${p.allDay.map(it => hourItemPill(it)).join('')}</div>`).join('')}
             </div>` : ''}
             <div class="day-timeline" style="margin-top:12px">
-              <div class="day-grid" style="grid-template-columns:48px repeat(7,minmax(72px,1fr));grid-template-rows:repeat(288, ${QTR_H}px)">${gridHtml}</div>
+              <div class="day-grid week-cal-cols" style="grid-template-rows:repeat(288, ${QTR_H}px)">${gridHtml}</div>
             </div>
           </div>
         </div>
