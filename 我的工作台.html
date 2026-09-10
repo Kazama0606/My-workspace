@@ -2069,8 +2069,8 @@ const CalShared = (function () {
               <div style="display:flex;align-items:center;gap:10px;min-width:0">
                 <span class="grow" style="color:#1a1a1a">${Util.esc(it.title)}</span>
                 ${timeStr ? `<span style="font-size:12px;white-space:nowrap;color:#1a1a1a">${timeStr}</span>` : ''}
-                <span class="muted" style="font-size:11px;white-space:nowrap">${recurrenceLabel(it)}</span>
               </div>
+              <span class="muted" style="font-size:11px">${recurrenceLabel(it)}</span>
               ${readOnly ? '' : `<div style="display:flex;gap:10px">
                 <button class="link-btn" data-edit-recurring-btn="${it.id}">編輯</button>
                 <button class="link-btn" style="color:var(--orange-accent, #d97706)" data-cancel-occurrence="${it.id}" data-cancel-date="${selectedDate}">取消這天</button>
