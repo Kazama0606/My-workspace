@@ -2225,12 +2225,15 @@ const CalShared = (function () {
       // 完全沒有行程或剛好一筆時都固定套用 100px，兩種情況高度一致、也不會有任何內容被切到或需要捲動；
       // 超過門檻筆數就取消固定高度，讓卡片自然撐高。
       // 之前試過「首頁唯讀模式 2 筆也固定 100px」，但行程標題比較長時內容其實會被壓縮切到(即使外層看起來沒有捲軸)，
-      // 這種依賴標題長短的高度抓法不夠穩，所以不管首頁還行事曆頁，門檻一律只到 1 筆，2 筆以上都直接自動撐高，才不會有任何被切到的風險
+      // 這種依賴標題長短的高度抓法不夠穩，所以不管首頁還行事曆頁，門檻一律只到 1 筆，2 筆以上都直接自動撐高，才不會有任何被切到的風險。
+      // 另外：點「編輯」把某一筆行程整個展開成表單(標題輸入框、類型、時間、備註、按鈕)時，表單本身需要的高度遠超過 100px，
+      // 這時候不管原本有幾筆行程，都一定要強制切成自動撐高，不然表單會被 100px 的固定高度＋overflow:hidden 硬生生切掉，完全沒辦法編輯
+      const isEditingInline = editingId !== null || editingRecurringId !== null;
       const DAYPANEL_FIXED_H = 100;
       const daypanelMaxFixedItems = 1;
       const infoCardEl = panelEl.querySelector('[data-daypanel-part="info"]');
       if (infoCardEl) {
-        if (scheduleItems.length <= daypanelMaxFixedItems) {
+        if (!isEditingInline && scheduleItems.length <= daypanelMaxFixedItems) {
           infoCardEl.style.height = DAYPANEL_FIXED_H + 'px';
           infoCardEl.style.overflowY = 'hidden';
           infoCardEl.classList.add('daypanel-fixed100');
@@ -2243,7 +2246,7 @@ const CalShared = (function () {
       // 「這天的待辦事項」卡片套用同樣的高度規則
       const tasksCardEl = panelEl.querySelector('[data-daypanel-part="tasks"]');
       if (tasksCardEl) {
-        if (taskItems.length <= daypanelMaxFixedItems) {
+        if (!isEditingInline && taskItems.length <= daypanelMaxFixedItems) {
           tasksCardEl.style.height = DAYPANEL_FIXED_H + 'px';
           tasksCardEl.style.overflowY = 'hidden';
           tasksCardEl.classList.add('daypanel-fixed100');
